@@ -1,0 +1,31 @@
+{
+  "name": "bocchi-game-discord-bot",
+  "version": "1.0.0",
+  "description": "Game simulasi berbasis teks di Discord dengan karakter Bocchi the Rock",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "deploy": "node deploy-commands.js",
+    "test-db": "node test-database.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "game",
+    "bocchi",
+    "simulation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.2.1",
+    "date-fns-tz": "^3.2.0",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
