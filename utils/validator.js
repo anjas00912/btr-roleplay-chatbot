@@ -58,8 +58,8 @@ function isActionPossible(action, target, userId) {
  */
 function validateSayAction(target, currentTime) {
     // Daftar karakter yang valid
-    const validCharacters = ['Bocchi', 'Nijika', 'Ryo', 'Kita', 'Kikuri'];
-    
+    const validCharacters = ['Bocchi', 'Nijika', 'Ryo', 'Kita', 'Kikuri', 'Seika'];
+
     // Cek apakah target adalah karakter yang valid
     if (!validCharacters.includes(target)) {
         return {
@@ -81,9 +81,13 @@ function validateSayAction(target, currentTime) {
     }
     
     const activity = characterActivity.current;
-    
+
+    // Handle complex availability object (untuk Seika) atau simple string
+    const availability = typeof activity.availability === 'object' ? activity.availability : { type: activity.availability };
+    const availabilityType = availability.type || activity.availability;
+
     // Cek availability karakter
-    switch (activity.availability) {
+    switch (availabilityType) {
         case 'unavailable':
             return {
                 possible: false,
@@ -97,38 +101,89 @@ function validateSayAction(target, currentTime) {
                     currentTime: currentTime.fullDateTimeString
                 }
             };
-            
+
         case 'limited':
-            // Bisa berinteraksi tapi dengan batasan
-            return {
-                possible: true,
-                reason: `${target} sedang ${activity.activity.toLowerCase()} tapi masih bisa diajak bicara sebentar.`,
-                context: {
-                    target,
-                    location: activity.location,
-                    activity: activity.activity,
-                    mood: activity.mood,
-                    availability: 'limited',
-                    timeRemaining: activity.timeRemaining,
-                    currentTime: currentTime.fullDateTimeString
-                }
-            };
-            
+            // Untuk Seika, cek difficulty level
+            if (availability.difficulty) {
+                const difficultyMessages = {
+                    'very_hard': `${target} sangat sulit didekati saat ini. ${availability.reason}`,
+                    'hard': `${target} terlihat sibuk dan tidak mudah diajak bicara. ${availability.reason}`,
+                    'medium': `${target} bisa diajak bicara tapi dengan hati-hati. ${availability.reason}`,
+                    'easy': `${target} terlihat lebih santai dan bisa diajak bicara. ${availability.reason}`
+                };
+
+                return {
+                    possible: true,
+                    reason: difficultyMessages[availability.difficulty] || `${target} sedang ${activity.activity.toLowerCase()} tapi masih bisa diajak bicara sebentar.`,
+                    context: {
+                        target,
+                        location: activity.location,
+                        activity: activity.activity,
+                        mood: activity.mood,
+                        availability: 'limited',
+                        difficulty: availability.difficulty,
+                        timeRemaining: activity.timeRemaining,
+                        currentTime: currentTime.fullDateTimeString
+                    }
+                };
+            } else {
+                // Availability limited biasa
+                return {
+                    possible: true,
+                    reason: `${target} sedang ${activity.activity.toLowerCase()} tapi masih bisa diajak bicara sebentar.`,
+                    context: {
+                        target,
+                        location: activity.location,
+                        activity: activity.activity,
+                        mood: activity.mood,
+                        availability: 'limited',
+                        timeRemaining: activity.timeRemaining,
+                        currentTime: currentTime.fullDateTimeString
+                    }
+                };
+            }
+
         case 'available':
-            return {
-                possible: true,
-                reason: `${target} sedang ${activity.activity.toLowerCase()} dan tersedia untuk diajak bicara.`,
-                context: {
-                    target,
-                    location: activity.location,
-                    activity: activity.activity,
-                    mood: activity.mood,
-                    availability: 'available',
-                    timeRemaining: activity.timeRemaining,
-                    currentTime: currentTime.fullDateTimeString
-                }
-            };
-            
+            // Untuk Seika, cek difficulty level
+            if (availability.difficulty) {
+                const difficultyMessages = {
+                    'very_hard': `${target} tersedia tapi sangat sibuk dan mudah tersinggung. ${availability.reason}`,
+                    'hard': `${target} tersedia tapi terlihat waspada dan profesional. ${availability.reason}`,
+                    'medium': `${target} tersedia dan bisa diajak bicara dengan normal. ${availability.reason}`,
+                    'easy': `${target} tersedia dan terlihat lebih santai dari biasanya. ${availability.reason}`
+                };
+
+                return {
+                    possible: true,
+                    reason: difficultyMessages[availability.difficulty] || `${target} sedang ${activity.activity.toLowerCase()} dan tersedia untuk diajak bicara.`,
+                    context: {
+                        target,
+                        location: activity.location,
+                        activity: activity.activity,
+                        mood: activity.mood,
+                        availability: 'available',
+                        difficulty: availability.difficulty,
+                        timeRemaining: activity.timeRemaining,
+                        currentTime: currentTime.fullDateTimeString
+                    }
+                };
+            } else {
+                // Availability available biasa
+                return {
+                    possible: true,
+                    reason: `${target} sedang ${activity.activity.toLowerCase()} dan tersedia untuk diajak bicara.`,
+                    context: {
+                        target,
+                        location: activity.location,
+                        activity: activity.activity,
+                        mood: activity.mood,
+                        availability: 'available',
+                        timeRemaining: activity.timeRemaining,
+                        currentTime: currentTime.fullDateTimeString
+                    }
+                };
+            }
+
         default:
             return {
                 possible: false,
@@ -354,12 +409,16 @@ function getSayActionSuggestions(target) {
         'Kikuri': {
             suggestedTimes: ['20:00-24:00 (STARRY)', '16:00-19:00 (Shimokitazawa)'],
             tips: 'Kikuri misterius dan lebih aktif di sore/malam hari. Coba cari di STARRY atau Shimokitazawa.'
+        },
+        'Seika': {
+            suggestedTimes: ['23:00-24:00 (STARRY - Closing)', '17:00-23:00 (STARRY - Available tapi sulit)'],
+            tips: 'Seika sangat sulit didekati dan selalu sibuk. Waktu terbaik adalah saat closing STARRY (23:00-24:00) atau coba keberuntungan saat dia mengelola live house. Bersikaplah profesional dan jangan buang-buang waktunya.'
         }
     };
-    
+
     return suggestions[target] || {
         suggestedTimes: ['Karakter tidak dikenali'],
-        tips: 'Pastikan nama karakter benar: Bocchi, Nijika, Ryo, Kita, atau Kikuri.'
+        tips: 'Pastikan nama karakter benar: Bocchi, Nijika, Ryo, Kita, Kikuri, atau Seika.'
     };
 }
 

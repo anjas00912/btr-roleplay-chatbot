@@ -409,49 +409,126 @@ const schedules = {
 
         "Kikuri": {
             weekday: [
-                { 
-                    start: 0, end: 15, 
-                    location: "Tidak Diketahui", 
+                {
+                    start: 0, end: 15,
+                    location: "Tidak Diketahui",
                     activity: "Tidur (Lokasi misterius)",
                     mood: "mysterious",
                     availability: "unavailable"
                 },
-                { 
-                    start: 16, end: 19, 
-                    location: "Shimokitazawa", 
+                {
+                    start: 16, end: 19,
+                    location: "Shimokitazawa",
                     activity: "Berkeliaran, cari inspirasi",
                     mood: "wandering",
                     availability: "limited"
                 },
-                { 
-                    start: 20, end: 24, 
-                    location: "STARRY", 
+                {
+                    start: 20, end: 24,
+                    location: "STARRY",
                     activity: "Nongkrong, kadang jam session",
                     mood: "cool",
                     availability: "available"
                 }
             ],
             weekend: [
-                { 
-                    start: 0, end: 12, 
-                    location: "Tidak Diketahui", 
+                {
+                    start: 0, end: 12,
+                    location: "Tidak Diketahui",
                     activity: "Tidur panjang (Weekend vibes)",
                     mood: "mysterious",
                     availability: "unavailable"
                 },
-                { 
-                    start: 13, end: 18, 
-                    location: "Shimokitazawa", 
+                {
+                    start: 13, end: 18,
+                    location: "Shimokitazawa",
                     activity: "Eksplorasi, hunting musik vintage",
                     mood: "curious",
                     availability: "available"
                 },
-                { 
-                    start: 19, end: 24, 
-                    location: "STARRY", 
+                {
+                    start: 19, end: 24,
+                    location: "STARRY",
                     activity: "Live session, mentoring junior",
                     mood: "wise",
                     availability: "available"
+                }
+            ]
+        },
+
+        "Seika": {
+            weekday: [
+                {
+                    start: 0, end: 9,
+                    location: "Apartemen di atas STARRY",
+                    activity: "Tidur (Mungkin juga mengerjakan pembukuan sampai larut)",
+                    mood: "tired",
+                    availability: "unavailable"
+                },
+                {
+                    start: 10, end: 12,
+                    location: "Apartemen di atas STARRY",
+                    activity: "Mengurus administrasi STARRY, membalas email band",
+                    mood: "focused",
+                    availability: { type: "limited", difficulty: "very_hard", reason: "Sangat sibuk dengan pekerjaan manajerial." }
+                },
+                {
+                    start: 12, end: 13,
+                    location: "Apartemen di atas STARRY",
+                    activity: "Makan siang sederhana sambil bekerja",
+                    mood: "neutral",
+                    availability: "unavailable"
+                },
+                {
+                    start: 14, end: 17,
+                    location: "STARRY",
+                    activity: "Persiapan teknis untuk pertunjukan malam: sound system, lighting, dll.",
+                    mood: "professional",
+                    availability: { type: "limited", difficulty: "hard", reason: "Fokus pada persiapan teknis, tidak suka diganggu." }
+                },
+                {
+                    start: 17, end: 23,
+                    location: "STARRY",
+                    activity: "Mengelola jalannya live house, mengawasi pertunjukan",
+                    mood: "intimidating",
+                    availability: { type: "available", difficulty: "hard", reason: "Bisa ditemui, tapi selalu terlihat sibuk dan waspada." }
+                },
+                {
+                    start: 23, end: 24,
+                    location: "STARRY",
+                    activity: "Menutup live house, bersih-bersih, bicara dengan Nijika",
+                    mood: "calm_after_storm",
+                    availability: { type: "limited", difficulty: "medium", reason: "Momen langka untuk bicara lebih santai, tapi hanya jika Nijika ada." }
+                }
+            ],
+            weekend: [
+                {
+                    start: 0, end: 10,
+                    location: "Apartemen di atas STARRY",
+                    activity: "Istirahat setelah malam yang panjang",
+                    mood: "exhausted",
+                    availability: "unavailable"
+                },
+                {
+                    start: 11, end: 15,
+                    location: "Shimokitazawa",
+                    activity: "Belanja kebutuhan STARRY atau mencari band baru untuk direkrut",
+                    mood: "scouting",
+                    availability: { type: "limited", difficulty: "very_hard", reason: "Bergerak cepat dan punya tujuan, sulit untuk diajak bicara." }
+                },
+                {
+                    start: 16, end: 23,
+                    location: "STARRY",
+                    activity: "Mengelola pertunjukan akhir pekan yang ramai",
+                    mood: "high_stress",
+                    availability: { type: "available", difficulty: "very_hard", reason: "Sangat sibuk dan tidak punya waktu untuk obrolan basa-basi." }
+                },
+                {
+                    start: 23, end: 24,
+                    location: "Apartemen di atas STARRY",
+                    activity: "Menghitung pemasukan, akhirnya bisa santai sedikit",
+                    mood: "relieved",
+                    availability: { type: "limited", difficulty: "easy", reason: "Momen terbaik untuk bicara, jika Anda berhasil mendapat akses ke apartemennya." }
                 }
             ]
         }

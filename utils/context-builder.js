@@ -115,11 +115,34 @@ function buildSayActionContext(target, currentTime, validationContext) {
         context += `\nSuasana di ${validationContext.location}: ${locationStatus.atmosphere}`;
     }
 
-    // Tambahkan konteks availability
-    if (validationContext.availability === 'limited') {
-        context += `\n⚠️ CATATAN: ${target} sedang sibuk dengan ${validationContext.activity.toLowerCase()}, jadi interaksi akan terbatas dan singkat.`;
-    } else if (validationContext.availability === 'available') {
-        context += `\n✅ ${target} tersedia untuk interaksi penuh dan bisa diajak bicara dengan santai.`;
+    // Tambahkan konteks availability dengan handling untuk Seika
+    const availability = validationContext.availability;
+    const difficulty = validationContext.difficulty;
+
+    if (availability === 'limited') {
+        if (difficulty) {
+            const difficultyNotes = {
+                'very_hard': `\n⚠️ PERINGATAN: ${target} sangat sulit didekati dan mudah tersinggung. Interaksi harus sangat hati-hati dan profesional.`,
+                'hard': `\n⚠️ CATATAN: ${target} terlihat sibuk dan waspada. Interaksi harus singkat dan to-the-point.`,
+                'medium': `\n⚠️ CATATAN: ${target} bisa diajak bicara tapi dengan hati-hati. Jangan terlalu santai.`,
+                'easy': `\n✅ ${target} terlihat lebih santai dari biasanya dan bisa diajak bicara dengan normal.`
+            };
+            context += difficultyNotes[difficulty] || `\n⚠️ CATATAN: ${target} sedang sibuk dengan ${validationContext.activity.toLowerCase()}, jadi interaksi akan terbatas dan singkat.`;
+        } else {
+            context += `\n⚠️ CATATAN: ${target} sedang sibuk dengan ${validationContext.activity.toLowerCase()}, jadi interaksi akan terbatas dan singkat.`;
+        }
+    } else if (availability === 'available') {
+        if (difficulty) {
+            const difficultyNotes = {
+                'very_hard': `\n⚠️ TERSEDIA TAPI SIBUK: ${target} bisa ditemui tapi sangat sibuk dan mudah tersinggung. Jangan buang-buang waktu.`,
+                'hard': `\n✅ TERSEDIA: ${target} bisa diajak bicara tapi tetap terlihat profesional dan waspada.`,
+                'medium': `\n✅ ${target} tersedia untuk interaksi normal.`,
+                'easy': `\n✅ ${target} tersedia dan terlihat santai, momen yang langka!`
+            };
+            context += difficultyNotes[difficulty] || `\n✅ ${target} tersedia untuk interaksi penuh dan bisa diajak bicara dengan santai.`;
+        } else {
+            context += `\n✅ ${target} tersedia untuk interaksi penuh dan bisa diajak bicara dengan santai.`;
+        }
     }
 
     // Tambahkan karakter lain di lokasi yang sama
@@ -289,9 +312,19 @@ function getMoodDescription(mood) {
         'intimate': 'Suasana intim dan hangat, cocok untuk bonding',
         'dramatic': 'Suasana dramatis dan intens, penuh emosi',
         'cozy': 'Suasana hangat dan nyaman, seperti pelukan',
-        'intense': 'Suasana intens dan mendebarkan, adrenaline tinggi'
+        'intense': 'Suasana intens dan mendebarkan, adrenaline tinggi',
+        // Mood khusus untuk Seika
+        'tired': 'Suasana lelah dan butuh istirahat, energi rendah',
+        'focused': 'Suasana fokus dan serius, tidak suka diganggu',
+        'professional': 'Suasana profesional dan efisien, business mode',
+        'intimidating': 'Suasana menakutkan dan tegas, aura yang kuat',
+        'calm_after_storm': 'Suasana tenang setelah kesibukan, sedikit lebih santai',
+        'exhausted': 'Suasana sangat lelah dan butuh recovery',
+        'scouting': 'Suasana waspada dan analitis, sedang menilai',
+        'high_stress': 'Suasana stress tinggi dan pressure, sangat sibuk',
+        'relieved': 'Suasana lega dan akhirnya bisa santai'
     };
-    
+
     return moodDescriptions[mood] || 'Suasana normal dan seimbang';
 }
 

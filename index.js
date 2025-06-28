@@ -3,6 +3,7 @@ const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord
 const fs = require('fs');
 const path = require('path');
 const { initializeDatabase, closeDatabase } = require('./database');
+const { handleButtonInteraction } = require('./handlers/buttonHandler');
 
 // Membuat instance client Discord
 const client = new Client({
@@ -103,30 +104,58 @@ client.once('ready', async () => {
     }
 });
 
-// Event untuk menangani interaksi slash commands
+// Event untuk menangani semua jenis interaksi
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
+    // Handle slash commands
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
 
-    const command = client.commands.get(interaction.commandName);
+        if (!command) {
+            console.error(`Command ${interaction.commandName} tidak ditemukan`);
+            return;
+        }
 
-    if (!command) {
-        console.error(`Command ${interaction.commandName} tidak ditemukan`);
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error('Error executing command:', error);
+
+            const errorMessage = 'Terjadi error saat menjalankan command!';
+
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: errorMessage, ephemeral: true });
+            } else {
+                await interaction.reply({ content: errorMessage, ephemeral: true });
+            }
+        }
         return;
     }
 
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error('Error executing command:', error);
-        
-        const errorMessage = 'Terjadi error saat menjalankan command!';
-        
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: errorMessage, ephemeral: true });
-        } else {
-            await interaction.reply({ content: errorMessage, ephemeral: true });
+    // Handle button interactions (including prologue choices)
+    if (interaction.isButton()) {
+        console.log(`[INTERACTION] Button interaction: ${interaction.customId} by ${interaction.user.id}`);
+        try {
+            await handleButtonInteraction(interaction);
+        } catch (error) {
+            console.error('Error handling button interaction:', error);
+
+            if (!interaction.replied && !interaction.deferred) {
+                try {
+                    await interaction.reply({
+                        content: '❌ Terjadi kesalahan saat memproses button. Silakan coba lagi.',
+                        ephemeral: true
+                    });
+                } catch (replyError) {
+                    console.error('Error sending button error response:', replyError);
+                }
+            }
         }
+        return;
     }
+
+    // Handle other interaction types in the future
+    // if (interaction.isSelectMenu()) { ... }
+    // if (interaction.isModalSubmit()) { ... }
 });
 
 // Event untuk menangani pesan (jika diperlukan untuk prefix commands)

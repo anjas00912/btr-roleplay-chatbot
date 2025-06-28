@@ -490,6 +490,9 @@ PENTING:
         let prompt = `SISTEM ROLEPLAY "BOCCHI THE ROCK!":
 Kamu adalah AI yang menjalankan dunia game roleplay immersive. Pemain berinteraksi melalui dialog dalam dunia yang hidup dan dinamis.
 
+INSTRUKSI KHUSUS PROLOG:
+Jika Anda melihat konteks [PROLOGUE], pahamilah bahwa ini adalah interaksi pertama pemain. Buat kesan pertama yang kuat. Reaksi NPC harus menentukan nada hubungan awal mereka dengan pemain. First impressions sangat penting dan akan mempengaruhi semua interaksi selanjutnya.
+
 ${situationContext}
 
 INFORMASI PEMAIN:
@@ -515,6 +518,7 @@ ATURAN STATISTIK:
 - Availability 'limited' = bonus stats lebih kecil
 - Availability 'available' = bonus stats normal/tinggi
 - Sesuaikan dengan mood karakter dan suasana waktu
+- KHUSUS PROLOG: Jika konteks [PROLOGUE], stat changes bisa lebih signifikan (hingga +5) untuk first impression yang exceptional
 
 FORMAT RESPONS (JSON):
 {

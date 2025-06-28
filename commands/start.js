@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getPlayer, addPlayer } = require('../database');
+const { startPrologue } = require('../game_logic/prologue_handler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -51,36 +52,12 @@ module.exports = {
                 const { updatePlayer } = require('../database');
                 await updatePlayer(discordId, initialValues.relationships);
             }
-            
-            // Buat embed konfirmasi
-            const embed = new EmbedBuilder()
-                .setColor('#4ecdc4')
-                .setTitle('🎉 Selamat Datang di Dunia Bocchi the Rock!')
-                .setDescription(`Hidup baru telah dimulai sebagai **${this.getOriginStoryText(originStoryChoice)}**!`)
-                .addFields(
-                    { name: '👤 Player', value: `<@${discordId}>`, inline: true },
-                    { name: '⚡ Action Points', value: initialValues.actionPoints.toString(), inline: true },
-                    { name: '📅 Dimulai', value: new Date().toISOString().split('T')[0], inline: true }
-                )
-                .addFields(
-                    { name: '📖 Cerita Latar Belakang', value: initialValues.storyDescription, inline: false }
-                );
-            
-            // Tambahkan informasi bonus relasi jika ada
-            if (Object.keys(initialValues.relationships).length > 0) {
-                const relationshipText = this.formatInitialRelationships(initialValues.relationships);
-                embed.addFields(
-                    { name: '🎸 Bonus Hubungan Awal', value: relationshipText, inline: false }
-                );
-            }
-            
-            embed.addFields(
-                { name: '🎮 Langkah Selanjutnya', value: 'Gunakan `/profile` untuk melihat status lengkap dan mulai petualangan Anda!', inline: false }
-            )
-            .setFooter({ text: 'Selamat bermain!' })
-            .setTimestamp();
-            
-            await interaction.reply({ embeds: [embed] });
+
+            // Dapatkan data player yang baru dibuat untuk prolog
+            const newPlayer = await getPlayer(discordId);
+
+            // Mulai sekuens prolog alih-alih konfirmasi biasa
+            await startPrologue(interaction, originStoryChoice, newPlayer);
             
         } catch (error) {
             console.error('Error dalam command start_life:', error);
@@ -97,8 +74,6 @@ module.exports = {
     
     // Helper function untuk mendapatkan nilai awal berdasarkan origin story
     getInitialValues(originStoryChoice) {
-        const currentDate = new Date().toISOString().split('T')[0];
-        
         switch (originStoryChoice) {
             case 'siswa_pindahan':
                 return {

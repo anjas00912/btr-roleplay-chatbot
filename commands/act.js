@@ -566,6 +566,9 @@ AKSI UMUM:
 Pemain melakukan aksi terstruktur "${actionData.name}" yang membutuhkan ${actionData.apCost} Action Points.
 Ini adalah aktivitas solo yang fokus pada pengembangan diri dan skill.
 
+INSTRUKSI KHUSUS PROLOG:
+Jika Anda melihat konteks [PROLOGUE], pahamilah bahwa ini adalah interaksi pertama pemain. Buat kesan pertama yang kuat. Reaksi NPC harus menentukan nada hubungan awal mereka dengan pemain. First impressions sangat penting dan akan mempengaruhi semua interaksi selanjutnya.
+
 ${situationContext}
 
 INFORMASI PEMAIN:
@@ -599,6 +602,7 @@ ATURAN STATISTIK:
 - Gunakan efek cuaca sebagai modifier
 - Berikan bonus untuk optimality tinggi atau kondisi ideal
 - Sesuaikan dengan mood dan atmosphere waktu
+- KHUSUS PROLOG: Jika konteks [PROLOGUE], stat changes bisa lebih signifikan (hingga +5) untuk first impression yang exceptional
 
 FORMAT RESPONS (JSON):
 {
