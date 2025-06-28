@@ -3,6 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { getPlayer, updatePlayer } = require('../database');
 const { checkAndResetDailyStats, hasEnoughAP, createInsufficientAPEmbed } = require('../daily-reset');
 const { getWeatherInfo, getWeatherByLocation, getWeatherEffects, getWeatherMood } = require('../game_logic/weather');
+const { isActionPossible, getSuggestions } = require('../utils/validator');
+const { buildDetailedSituationContext } = require('../utils/context-builder');
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -125,9 +127,49 @@ module.exports = {
             }
             
             console.log(`[ACT] Player validated. AP: ${player.action_points}, Required: ${actionData.apCost}`);
-            
-            // b. Bentuk Prompt Spesifik untuk Aksi
-            const prompt = this.buildActionPrompt(player, actionData);
+
+            // b. Validasi Aksi dengan Sistem Jadwal Dunia
+            console.log(`[ACT] Memvalidasi aksi ${actionKey}...`);
+
+            // Validasi apakah aksi memungkinkan berdasarkan waktu dan jadwal
+            const validation = isActionPossible(actionKey, null, discordId);
+            console.log(`[ACT] Hasil validasi: ${validation.possible ? 'VALID' : 'INVALID'}`);
+
+            if (!validation.possible) {
+                // Aksi tidak memungkinkan - jangan panggil LLM, langsung beri feedback
+                console.log(`[ACT] Aksi ditolak: ${validation.reason}`);
+
+                const embed = new EmbedBuilder()
+                    .setColor('#ff6b6b')
+                    .setTitle('❌ Aksi Tidak Memungkinkan')
+                    .setDescription(validation.reason)
+                    .addFields({
+                        name: '💡 Saran',
+                        value: this.buildActionSuggestionText(actionKey),
+                        inline: false
+                    })
+                    .addFields({
+                        name: '🕐 Waktu Saat Ini',
+                        value: validation.context?.currentTime || 'Tidak diketahui',
+                        inline: true
+                    })
+                    .addFields({
+                        name: '⚡ AP yang Akan Dikembalikan',
+                        value: `${actionData.apCost} AP (aksi dibatalkan)`,
+                        inline: true
+                    })
+                    .setTimestamp();
+
+                // Jika sudah ada notifikasi reset harian, kirim sebagai followUp
+                if (resetResult.isNewDay) {
+                    return await interaction.followUp({ embeds: [embed], ephemeral: true });
+                } else {
+                    return await interaction.reply({ embeds: [embed], ephemeral: true });
+                }
+            }
+
+            // c. Bentuk Prompt Spesifik untuk Aksi (hanya jika validasi berhasil)
+            const prompt = this.buildActionPrompt(player, actionData, validation.context);
             console.log(`[ACT] Action prompt built, length: ${prompt.length} characters`);
             
             // Defer reply karena LLM call bisa memakan waktu
@@ -502,5 +544,72 @@ AKSI UMUM:
         }
 
         return changes.length > 0 ? changes.join('\n') : 'Tidak ada perubahan';
+    },
+
+    // Helper function untuk membuat teks saran aksi
+    buildActionSuggestionText(actionKey) {
+        const suggestions = getSuggestions(actionKey, null);
+        return `**${suggestions.tips}**\n\n**Waktu yang disarankan:**\n${suggestions.suggestedTimes.join('\n')}`;
+    },
+
+    // Update buildActionPrompt untuk menggunakan konteks waktu yang detail
+    buildActionPrompt(player, actionData, validationContext = null) {
+        // Bangun konteks situasi yang sangat detail untuk aksi terstruktur
+        const situationContext = buildDetailedSituationContext(player, actionData.name.toLowerCase().replace(/\s+/g, '_'), null, validationContext);
+
+        // Dapatkan informasi cuaca untuk efek gameplay
+        const weatherInfo = getWeatherInfo(player.current_weather);
+        const weatherEffects = getWeatherEffects(weatherInfo);
+
+        // Bangun prompt dengan konteks yang kaya
+        let prompt = `SISTEM AKSI TERSTRUKTUR "BOCCHI THE ROCK!":
+Pemain melakukan aksi terstruktur "${actionData.name}" yang membutuhkan ${actionData.apCost} Action Points.
+Ini adalah aktivitas solo yang fokus pada pengembangan diri dan skill.
+
+${situationContext}
+
+INFORMASI PEMAIN:
+- Origin Story: ${player.origin_story}
+- Action Points: ${player.action_points}/10
+
+DETAIL AKSI:
+- Nama: ${actionData.name}
+- Deskripsi: ${actionData.description}
+- Biaya AP: ${actionData.apCost}
+- Skill Type: ${actionData.skillType}
+- Lokasi Type: ${actionData.location}
+- Focus Stats: ${actionData.focusStats.join(', ')}
+
+EFEK CUACA PADA GAMEPLAY:
+${Object.entries(weatherEffects).map(([key, value]) => `- ${key}: ${value > 0 ? '+' : ''}${value}%`).join('\n')}
+
+${this.getActionSpecificRules(actionData)}
+
+INSTRUKSI NARASI:
+1. Gunakan konteks waktu JST dan atmosphere untuk menciptakan narasi yang immersive
+2. Fokus pada pengalaman internal pemain (pikiran, perasaan, refleksi)
+3. Deskripsikan detail aktivitas dengan suasana waktu dan cuaca
+4. Jelaskan kemajuan, tantangan, atau insight yang didapat
+5. Integrasikan efek cuaca dan waktu pada mood dan efektivitas aktivitas
+6. Buat narasi yang terasa personal dan meaningful
+
+ATURAN STATISTIK:
+- action_points: Selalu -${actionData.apCost} (biaya aksi)
+- Focus stats (${actionData.focusStats.join(', ')}): -2 hingga +3
+- Gunakan efek cuaca sebagai modifier
+- Berikan bonus untuk optimality tinggi atau kondisi ideal
+- Sesuaikan dengan mood dan atmosphere waktu
+
+FORMAT RESPONS (JSON):
+{
+    "narration": "Narasi detail dan immersive tentang aktivitas dengan konteks waktu...",
+    "stat_changes": {
+        "action_points": -${actionData.apCost},
+        "bocchi_trust": 0,
+        "nijika_comfort": 0
+    }
+}`;
+
+        return prompt;
     }
 };

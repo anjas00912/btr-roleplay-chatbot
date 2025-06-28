@@ -3,6 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { getPlayer, updatePlayer } = require('../database');
 const { checkAndResetDailyStats, hasEnoughAP, createInsufficientAPEmbed } = require('../daily-reset');
 const { getWeatherInfo, getWeatherByLocation, getWeatherEffects, getWeatherMood } = require('../game_logic/weather');
+const { isActionPossible, getSuggestions } = require('../utils/validator');
+const { buildDetailedSituationContext } = require('../utils/context-builder');
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -64,9 +66,48 @@ module.exports = {
 
             // b. Ambil Status Saat Ini (sudah didapat dan diupdate dari reset check)
             console.log(`[SAY] Status pemain: AP=${player.action_points}, Origin=${player.origin_story}, Weather=${player.current_weather}`);
-            
-            // c. Bentuk Prompt untuk LLM
-            const prompt = this.buildLLMPrompt(player, dialog);
+
+            // c. Validasi Aksi dengan Sistem Jadwal Dunia
+            console.log(`[SAY] Memvalidasi aksi bicara...`);
+
+            // Ekstrak target dari dialog (sederhana: cari nama karakter dalam dialog)
+            const target = this.extractTargetFromDialog(dialog);
+            console.log(`[SAY] Target yang terdeteksi: ${target || 'tidak spesifik'}`);
+
+            // Validasi apakah aksi memungkinkan
+            const validation = isActionPossible('say', target, discordId);
+            console.log(`[SAY] Hasil validasi: ${validation.possible ? 'VALID' : 'INVALID'}`);
+
+            if (!validation.possible) {
+                // Aksi tidak memungkinkan - jangan panggil LLM, langsung beri feedback
+                console.log(`[SAY] Aksi ditolak: ${validation.reason}`);
+
+                const embed = new EmbedBuilder()
+                    .setColor('#ff6b6b')
+                    .setTitle('❌ Aksi Tidak Memungkinkan')
+                    .setDescription(validation.reason)
+                    .addFields({
+                        name: '💡 Saran',
+                        value: this.buildSuggestionText(target),
+                        inline: false
+                    })
+                    .addFields({
+                        name: '🕐 Waktu Saat Ini',
+                        value: validation.context?.currentTime || 'Tidak diketahui',
+                        inline: true
+                    })
+                    .setTimestamp();
+
+                // Jika sudah ada notifikasi reset harian, kirim sebagai followUp
+                if (resetResult.isNewDay) {
+                    return await interaction.followUp({ embeds: [embed], ephemeral: true });
+                } else {
+                    return await interaction.reply({ embeds: [embed], ephemeral: true });
+                }
+            }
+
+            // d. Bentuk Prompt untuk LLM (hanya jika validasi berhasil)
+            const prompt = this.buildLLMPrompt(player, dialog, validation.context);
             console.log(`[SAY] Prompt dibuat, panjang: ${prompt.length} karakter`);
 
             // Defer reply karena LLM call bisa memakan waktu
@@ -405,5 +446,86 @@ PENTING:
         }
 
         return changes.length > 0 ? changes.join('\n') : 'Tidak ada perubahan';
+    },
+
+    // Helper function untuk mengekstrak target dari dialog
+    extractTargetFromDialog(dialog) {
+        const characters = ['Bocchi', 'Nijika', 'Ryo', 'Kita', 'Kikuri'];
+        const lowerDialog = dialog.toLowerCase();
+
+        // Cari nama karakter dalam dialog
+        for (const character of characters) {
+            if (lowerDialog.includes(character.toLowerCase())) {
+                return character;
+            }
+        }
+
+        // Jika tidak ada karakter spesifik, return null (general interaction)
+        return null;
+    },
+
+    // Helper function untuk membuat teks saran
+    buildSuggestionText(target) {
+        if (!target) {
+            return 'Gunakan `/status` untuk melihat jadwal karakter dan lokasi saat ini.';
+        }
+
+        const suggestions = getSuggestions('say', target);
+        return `**Waktu terbaik untuk bicara dengan ${target}:**\n${suggestions.suggestedTimes.join('\n')}\n\n💡 ${suggestions.tips}`;
+    },
+
+    // Update buildLLMPrompt untuk menggunakan konteks waktu yang detail
+    buildLLMPrompt(player, dialog, validationContext = null) {
+        // Ekstrak target dari dialog
+        const target = this.extractTargetFromDialog(dialog);
+
+        // Bangun konteks situasi yang sangat detail
+        const situationContext = buildDetailedSituationContext(player, 'say', target, validationContext);
+
+        // Dapatkan informasi cuaca untuk efek gameplay
+        const weatherInfo = getWeatherInfo(player.current_weather);
+        const weatherEffects = getWeatherEffects(weatherInfo);
+
+        // Bangun prompt dengan konteks yang kaya
+        let prompt = `SISTEM ROLEPLAY "BOCCHI THE ROCK!":
+Kamu adalah AI yang menjalankan dunia game roleplay immersive. Pemain berinteraksi melalui dialog dalam dunia yang hidup dan dinamis.
+
+${situationContext}
+
+INFORMASI PEMAIN:
+- Origin Story: ${player.origin_story}
+- Action Points: ${player.action_points}/10
+
+EFEK CUACA PADA GAMEPLAY:
+${Object.entries(weatherEffects).map(([key, value]) => `- ${key}: ${value > 0 ? '+' : ''}${value}%`).join('\n')}
+
+DIALOG PEMAIN: "${dialog}"
+
+INSTRUKSI NARASI:
+1. Gunakan konteks waktu dan situasi untuk menciptakan narasi yang sangat immersive
+2. Deskripsikan suasana, atmosphere, dan detail visual yang sesuai dengan waktu JST
+3. Jika berinteraksi dengan karakter, sesuaikan dengan mood dan availability mereka
+4. Integrasikan efek cuaca pada mood dan interaksi
+5. Buat narasi yang terasa hidup dan realistis sesuai dengan waktu dan tempat
+
+ATURAN STATISTIK:
+- action_points: Selalu -1 (biaya interaksi)
+- Karakter stats: -3 hingga +3 berdasarkan kualitas interaksi
+- Gunakan efek cuaca sebagai modifier (positif/negatif)
+- Availability 'limited' = bonus stats lebih kecil
+- Availability 'available' = bonus stats normal/tinggi
+- Sesuaikan dengan mood karakter dan suasana waktu
+
+FORMAT RESPONS (JSON):
+{
+    "narration": "Narasi detail yang immersive dengan konteks waktu dan situasi...",
+    "stat_changes": {
+        "action_points": -1,
+        "bocchi_trust": 0,
+        "nijika_comfort": 0
+    }
+}`;
+
+        return prompt;
     }
 };
