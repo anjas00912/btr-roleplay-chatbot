@@ -23,6 +23,7 @@ function initializeDatabase() {
                 last_played_date TEXT,
                 action_points INTEGER,
                 current_weather TEXT,
+                known_characters TEXT DEFAULT '[]',
                 bocchi_trust INTEGER DEFAULT 0,
                 bocchi_comfort INTEGER DEFAULT 0,
                 bocchi_affection INTEGER DEFAULT 0,
@@ -122,6 +123,123 @@ function closeDatabase() {
     });
 }
 
+/**
+ * Tambahkan karakter ke daftar known_characters pemain
+ * @param {string} discordId - Discord ID pemain
+ * @param {string} characterName - Nama karakter yang baru dikenal
+ * @returns {Promise<boolean>} - Berhasil atau tidak
+ */
+function addKnownCharacter(discordId, characterName) {
+    return new Promise((resolve, reject) => {
+        // Ambil daftar karakter yang sudah dikenal
+        db.get('SELECT known_characters FROM players WHERE discord_id = ?', [discordId], (err, row) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            if (!row) {
+                reject(new Error('Player not found'));
+                return;
+            }
+
+            let knownCharacters = [];
+            try {
+                knownCharacters = JSON.parse(row.known_characters || '[]');
+            } catch (parseError) {
+                console.error('Error parsing known_characters:', parseError);
+                knownCharacters = [];
+            }
+
+            // Cek apakah karakter sudah dikenal
+            if (knownCharacters.includes(characterName)) {
+                resolve(false); // Sudah dikenal sebelumnya
+                return;
+            }
+
+            // Tambahkan karakter baru
+            knownCharacters.push(characterName);
+
+            // Update database
+            db.run(
+                'UPDATE players SET known_characters = ? WHERE discord_id = ?',
+                [JSON.stringify(knownCharacters), discordId],
+                function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        console.log(`[KNOWN_CHARS] Added ${characterName} to known characters for ${discordId}`);
+                        resolve(true);
+                    }
+                }
+            );
+        });
+    });
+}
+
+/**
+ * Cek apakah pemain sudah mengenal karakter tertentu
+ * @param {string} discordId - Discord ID pemain
+ * @param {string} characterName - Nama karakter
+ * @returns {Promise<boolean>} - Apakah sudah dikenal
+ */
+function isCharacterKnown(discordId, characterName) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT known_characters FROM players WHERE discord_id = ?', [discordId], (err, row) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            if (!row) {
+                resolve(false);
+                return;
+            }
+
+            let knownCharacters = [];
+            try {
+                knownCharacters = JSON.parse(row.known_characters || '[]');
+            } catch (parseError) {
+                console.error('Error parsing known_characters:', parseError);
+                knownCharacters = [];
+            }
+
+            resolve(knownCharacters.includes(characterName));
+        });
+    });
+}
+
+/**
+ * Dapatkan daftar karakter yang sudah dikenal pemain
+ * @param {string} discordId - Discord ID pemain
+ * @returns {Promise<Array>} - Array nama karakter yang sudah dikenal
+ */
+function getKnownCharacters(discordId) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT known_characters FROM players WHERE discord_id = ?', [discordId], (err, row) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+
+            if (!row) {
+                resolve([]);
+                return;
+            }
+
+            let knownCharacters = [];
+            try {
+                knownCharacters = JSON.parse(row.known_characters || '[]');
+            } catch (parseError) {
+                console.error('Error parsing known_characters:', parseError);
+                knownCharacters = [];
+            }
+
+            resolve(knownCharacters);
+        });
+    });
+}
+
 // Export koneksi database dan fungsi-fungsi utility
 module.exports = {
     db,
@@ -129,5 +247,8 @@ module.exports = {
     getPlayer,
     addPlayer,
     updatePlayer,
-    closeDatabase
+    closeDatabase,
+    addKnownCharacter,
+    isCharacterKnown,
+    getKnownCharacters
 };

@@ -5,6 +5,11 @@ const { checkAndResetDailyStats, hasEnoughAP, createInsufficientAPEmbed } = requ
 const { getWeatherInfo, getWeatherByLocation, getWeatherEffects, getWeatherMood } = require('../game_logic/weather');
 const { isActionPossible, getSuggestions } = require('../utils/validator');
 const { buildDetailedSituationContext } = require('../utils/context-builder');
+const {
+    buildCharacterContextForPrompt,
+    generateIntroductionPromptInstruction,
+    processLLMResponseWithIntroduction
+} = require('../game_logic/introduction_system');
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -106,9 +111,10 @@ module.exports = {
                 }
             }
 
-            // d. Bentuk Prompt untuk LLM (hanya jika validasi berhasil)
-            const prompt = this.buildLLMPrompt(player, dialog, validation.context);
-            console.log(`[SAY] Prompt dibuat, panjang: ${prompt.length} karakter`);
+            // d. Bentuk Prompt untuk LLM dengan sistem perkenalan (Fase 4.7)
+            const characterContext = await buildCharacterContextForPrompt(discordId, validation.context.charactersPresent || []);
+            const prompt = this.buildLLMPrompt(player, dialog, validation.context, characterContext);
+            console.log(`[SAY] Prompt dibuat dengan sistem perkenalan, panjang: ${prompt.length} karakter`);
 
             // Defer reply karena LLM call bisa memakan waktu
             // Jika sudah ada notifikasi reset harian, tidak perlu defer lagi
@@ -125,19 +131,33 @@ module.exports = {
             
             console.log(`[SAY] Respons LLM diterima: ${llmResponse.substring(0, 100)}...`);
             
-            // e. Proses Respons LLM
+            // e. Proses Respons LLM dengan sistem perkenalan (Fase 4.7)
             let parsedResponse;
             try {
                 // Bersihkan respons dari markdown code blocks jika ada
                 const cleanResponse = llmResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
                 parsedResponse = JSON.parse(cleanResponse);
-                
+
                 // Validasi struktur respons
                 if (!parsedResponse.narration || !parsedResponse.stat_changes) {
                     throw new Error('Struktur respons LLM tidak valid');
                 }
-                
+
                 console.log(`[SAY] Respons berhasil di-parse`);
+
+                // Proses character reveal jika ada (Fase 4.7)
+                const introductionResult = await processLLMResponseWithIntroduction(
+                    interaction,
+                    parsedResponse,
+                    discordId,
+                    validation.context.location || 'unknown',
+                    validation.context.charactersPresent || []
+                );
+
+                if (introductionResult.characterRevealed) {
+                    console.log(`[SAY] Character revealed: ${introductionResult.characterRevealed}, success: ${introductionResult.revealSuccess}`);
+                }
+
             } catch (parseError) {
                 console.error(`[SAY] Error parsing LLM response:`, parseError);
                 console.error(`[SAY] Raw response:`, llmResponse);
@@ -474,8 +494,8 @@ PENTING:
         return `**Waktu terbaik untuk bicara dengan ${target}:**\n${suggestions.suggestedTimes.join('\n')}\n\n💡 ${suggestions.tips}`;
     },
 
-    // Update buildLLMPrompt untuk menggunakan konteks waktu yang detail
-    buildLLMPrompt(player, dialog, validationContext = null) {
+    // Update buildLLMPrompt untuk menggunakan konteks waktu yang detail dan sistem perkenalan (Fase 4.7)
+    buildLLMPrompt(player, dialog, validationContext = null, characterContext = null) {
         // Ekstrak target dari dialog
         const target = this.extractTargetFromDialog(dialog);
 
@@ -511,7 +531,7 @@ INSTRUKSI NARASI:
 4. Integrasikan efek cuaca pada mood dan interaksi
 5. Buat narasi yang terasa hidup dan realistis sesuai dengan waktu dan tempat
 
-ATURAN STATISTIK:
+ATURAN STATISTIK KETAT:
 - action_points: Selalu -1 (biaya interaksi)
 - Karakter stats: -3 hingga +3 berdasarkan kualitas interaksi
 - Gunakan efek cuaca sebagai modifier (positif/negatif)
@@ -519,6 +539,16 @@ ATURAN STATISTIK:
 - Availability 'available' = bonus stats normal/tinggi
 - Sesuaikan dengan mood karakter dan suasana waktu
 - KHUSUS PROLOG: Jika konteks [PROLOGUE], stat changes bisa lebih signifikan (hingga +5) untuk first impression yang exceptional
+
+ATURAN KUNCI - POIN RELASI:
+⚠️ PENTING: Poin relasi (Trust, Comfort, Affection) HANYA diberikan jika ada interaksi langsung (dialog atau tindakan bersama) dengan karakter tersebut.
+- Aksi solo (latihan sendiri, menulis lagu sendiri, jalan-jalan tanpa bertemu karakter) = TIDAK ADA perubahan relasi
+- Hanya berinteraksi dengan Bocchi = HANYA bocchi_* stats yang berubah
+- Hanya berinteraksi dengan Nijika = HANYA nijika_* stats yang berubah
+- Interaksi grup = Multiple character stats bisa berubah sesuai keterlibatan masing-masing
+- Tidak ada "bonus relasi" untuk aksi yang tidak melibatkan karakter secara langsung
+
+${characterContext ? generateIntroductionPromptInstruction(characterContext) : ''}
 
 FORMAT RESPONS (JSON):
 {

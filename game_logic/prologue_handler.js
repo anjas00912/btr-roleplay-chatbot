@@ -571,14 +571,70 @@ async function sendPrologueConclusion(interaction) {
         .setTitle('🎉 Prolog Selesai')
         .setDescription(`**Selamat datang di kehidupan sehari-harimu dalam dunia Bocchi the Rock!**\n\nFirst impression telah terbentuk, dan petualangan sesungguhnya baru saja dimulai. Setiap interaksi selanjutnya akan dipengaruhi oleh pilihan yang baru saja kamu buat.\n\n**Dunia musik indie Shimokitazawa menunggumu dengan segala kemungkinannya!**`)
         .addFields(
-            { name: '🎮 Commands Utama', value: '• `/profile` - Lihat status dan relationships lengkap\n• `/say [nama] [dialog]` - Bicara dengan karakter\n• `/act [aktivitas]` - Lakukan berbagai aktivitas\n• `/status` - Cek kondisi saat ini', inline: false },
-            { name: '🎯 Tips Bermain', value: '• Perhatikan Action Points (AP) - reset setiap hari\n• Cuaca mempengaruhi mood dan interaksi\n• Relationship levels mempengaruhi response karakter\n• Explore berbagai lokasi dan aktivitas!', inline: false },
-            { name: '🌟 Next Steps', value: 'Mulai berinteraksi dengan karakter favorit kamu atau explore dunia dengan `/act jalan_shimokitazawa`!', inline: false }
+            { name: '🎮 Commands Utama', value: '• `/profile` - Lihat status dan relationships lengkap\n• `/say [nama] [dialog]` - Bicara dengan karakter\n• `/act` - Lakukan aktivitas dinamis (REKOMENDASI!)\n• `/status` - Cek kondisi saat ini', inline: false },
+            { name: '🎯 Tips Bermain', value: '• Perhatikan Action Points (AP) - reset setiap hari\n• Cuaca mempengaruhi mood dan interaksi\n• Relationship levels mempengaruhi response karakter\n• Explore berbagai lokasi dan aktivitas!', inline: false }
         )
         .setFooter({ text: 'Petualangan musikmu dimulai sekarang!' })
         .setTimestamp();
 
     await interaction.followUp({ embeds: [conclusionEmbed] });
+
+    // Jeda sebelum bridge message
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Bridge message yang mengarahkan ke gameplay utama
+    await sendPrologueBridgeMessage(interaction);
+}
+
+/**
+ * Send bridge message yang menghubungkan prolog dengan gameplay utama
+ */
+async function sendPrologueBridgeMessage(interaction) {
+    const player = await getPlayer(interaction.user.id);
+    const currentTime = getCurrentJST();
+
+    // Tentukan lokasi dan konteks berdasarkan origin story
+    let bridgeContext = getBridgeContextByOrigin(player.origin_story, currentTime);
+
+    const bridgeEmbed = new EmbedBuilder()
+        .setColor('#4ecdc4')
+        .setTitle('🌅 Kehidupan Baru Dimulai')
+        .setDescription(bridgeContext.description)
+        .addFields(
+            { name: '📍 Lokasi Saat Ini', value: bridgeContext.location, inline: true },
+            { name: '⏰ Waktu', value: `${currentTime.dayName}, ${currentTime.timeString} JST`, inline: true },
+            { name: '🌤️ Cuaca', value: player.current_weather || 'Cerah', inline: true },
+            { name: '💡 Apa Selanjutnya?', value: '**Gunakan `/act` untuk melihat apa yang bisa kamu lakukan sekarang.**\n\nSistem baru ini akan memberikan pilihan aksi yang relevan berdasarkan situasi, lokasi, dan waktu saat ini!', inline: false }
+        )
+        .setFooter({ text: 'Tip: /act akan menampilkan pilihan yang berbeda tergantung konteks!' })
+        .setTimestamp();
+
+    await interaction.followUp({ embeds: [bridgeEmbed] });
+}
+
+/**
+ * Mendapatkan konteks bridge berdasarkan origin story
+ */
+function getBridgeContextByOrigin(originStory, currentTime) {
+    const contexts = {
+        pekerja_starry: {
+            location: 'STARRY Live House - Staff Area',
+            description: `Setelah interaksi pertama yang menentukan, kamu kini berada di area staff STARRY. Seika telah memberikan orientasi singkat, dan kamu melihat kehidupan live house yang sesungguhnya.\n\nKessoku Band sedang mempersiapkan latihan berikutnya. Nijika mengatur drum kit, Kita menyetel gitar, Ryo memeriksa bass, dan Bocchi... masih terlihat nervous tapi sudah tidak bersembunyi lagi.\n\n**Hari kerja pertamamu baru saja dimulai, dan ada banyak hal yang bisa kamu lakukan.**`
+        },
+        siswa_pindahan: {
+            location: 'SMA Shuka - Koridor Sekolah',
+            description: `Setelah momen makan siang yang menentukan, kamu kini berjalan di koridor sekolah. Interaksi dengan Kita dan Bocchi tadi telah membuka jalan untuk hubungan yang lebih dalam.\n\nSekolah masih ramai dengan aktivitas siang hari. Beberapa siswa sedang bersiap untuk kegiatan klub, yang lain masih mengobrol di kelas.\n\n**Sebagai siswa pindahan, masih banyak hal yang perlu kamu explore di lingkungan baru ini.**`
+        },
+        musisi_jalanan: {
+            location: 'Shimokitazawa Street - Dekat STARRY',
+            description: `Setelah keputusan penting tadi, kamu kini berada di jalanan Shimokitazawa dengan gitar di punggung. Suara latihan Kessoku Band masih terdengar samar dari STARRY.\n\nJalanan mulai ramai dengan aktivitas sore hari. Beberapa musisi jalanan lain mulai bermunculan, toko-toko musik mulai ramai, dan atmosphere musik indie Shimokitazawa semakin terasa.\n\n**Dunia musik jalanan terbuka lebar, dan ada banyak kemungkinan yang menunggumu.**`
+        }
+    };
+
+    return contexts[originStory] || {
+        location: 'Shimokitazawa',
+        description: `Setelah prolog yang menentukan, kamu kini berada di dunia Bocchi the Rock yang penuh kemungkinan.\n\n**Petualangan musikmu baru saja dimulai, dan ada banyak hal yang bisa kamu lakukan.**`
+    };
 }
 
 /**

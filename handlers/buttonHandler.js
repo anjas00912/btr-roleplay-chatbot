@@ -1,8 +1,9 @@
 // Button Handler untuk semua button interactions dalam game
-// Menangani prolog buttons dan button interactions lainnya
+// Menangani prolog buttons, dynamic action buttons, dan button interactions lainnya
 
 const { handlePrologueButton } = require('../game_logic/prologue');
 const { handlePrologueChoice } = require('../game_logic/prologue_handler');
+const { handleDynamicActionButton } = require('./dynamicActionHandler');
 
 /**
  * Handler utama untuk semua button interactions
@@ -31,7 +32,16 @@ async function handleButtonInteraction(interaction) {
                 return;
             }
         }
-        
+
+        // Handle dynamic action buttons (new system)
+        if (customId.startsWith('dynamic_action_')) {
+            const handled = await handleDynamicActionButton(interaction);
+            if (handled) {
+                console.log(`[BUTTON] Dynamic action button handled: ${customId}`);
+                return;
+            }
+        }
+
         // Handle other button types here in the future
         // if (customId.startsWith('profile_')) { ... }
         // if (customId.startsWith('shop_')) { ... }
