@@ -118,11 +118,11 @@ async function startPekerjaStarryPrologue(interaction, player) {
 async function startSiswaPindahanPrologue(interaction, player) {
     const currentTime = getCurrentJST();
     
-    // Pesan 1: Hari Pertama di Sekolah
+    // Pesan 1: Hari Pertama di Sekolah (Scene 1: Di Kelas)
     const embed1 = new EmbedBuilder()
         .setColor('#ff9ff3')
         .setTitle('🏫 SMA Shuka - Hari Pertama')
-        .setDescription(`**${currentTime.dayName}, ${currentTime.timeString} JST**\n\nHari pertama di SMA Shuka. Kamu masuk ke kelas baru, semua mata tertuju padamu.\n\nGuru menunjuk sebuah kursi kosong. "Silakan duduk di sana."\n\nSaat kamu berjalan, kamu melihat:\n🎤 Seorang gadis populer dengan rambut merah (**Kita**) tersenyum padamu\n🎸 Di sudut lain, seorang gadis berambut pink (**Bocchi**) dengan cepat menundukkan kepalanya`)
+        .setDescription(`**${currentTime.dayName}, ${currentTime.timeString} JST**\n\nHari pertama di SMA Shuka. Kamu masuk ke kelas baru, semua mata tertuju padamu.\n\nGuru menunjuk sebuah kursi kosong. "Silakan duduk di sana."\n\nSaat kamu berjalan menuju kursimu, kamu melihat:\n\n🎤 **Seorang gadis populer dengan rambut merah menyala** tersenyum cerah padamu. Dia tampak percaya diri dan outgoing, seperti tipe orang yang mudah bergaul.\n\n🎸 **Di sudut lain, seorang gadis berambut pink** dengan cepat menundukkan kepalanya saat matamu bertemu dengannya. Dia terlihat sangat pemalu dan nervous, duduk sendirian sambil memeluk tas gitarnya.`)
         .addFields(
             { name: '📍 Lokasi', value: 'SMA Shuka - Kelas 1-A', inline: true },
             { name: '🌤️ Cuaca', value: player.current_weather, inline: true },
@@ -136,33 +136,57 @@ async function startSiswaPindahanPrologue(interaction, player) {
     // Jeda untuk build suspense
     await new Promise(resolve => setTimeout(resolve, 3000));
     
-    // Pesan 2: Lunch Break Encounter
+    // Jeda untuk build suspense
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Pesan 2: Jam Pulang Sekolah (Scene 2: Perkenalan dengan Nijika & Ryo)
     const embed2 = new EmbedBuilder()
         .setColor('#feca57')
-        .setTitle('🍱 Istirahat Makan Siang')
-        .setDescription(`Saat istirahat makan siang, **Kita** menghampirimu dengan senyum yang bright.\n\n**"Hai, anak baru! Namaku Kita Ikuyo!"**\n\nDia menunjuk ke arah Bocchi yang sedang gemetar di mejanya, makan sendirian.\n\n**"Mau makan siang bersama kami? Bocchi-chan itu pemalu, tapi dia orang yang baik!"**\n\nKamu melihat Bocchi mengintip nervously, sepertinya berharap tapi juga takut kamu akan menolak...`)
-        .setFooter({ text: 'Kesempatan untuk berteman... Bagaimana responsmu?' });
+        .setTitle('🔔 Jam Pulang Sekolah')
+        .setDescription(`Bel pulang berbunyi, mengakhiri hari pertamamu yang panjang. Saat kamu berjalan keluar dari gerbang sekolah, kamu melihat sosok yang familiar—**gadis berambut merah dari kelasmu** sedang tertawa bersama dua gadis lain dari sekolah yang berbeda.\n\nKamu langsung mengenali seragam mereka: **Shimokitazawa High**.\n\n🥁 **Satu gadis berambut pirang dengan pita segitiga** tampak sangat ceria dan energik, sedang mengatur tas drum yang besar\n🎸 **Yang lainnya, tinggi dan berambut biru**, bersandar di dinding dengan aura yang tenang dan cool, membawa case bass\n\n**Gadis berambut pink dari kelasmu** juga ada di sana, berdiri sedikit di belakang grup dengan gitar di punggungnya, tampak ingin menjadi satu dengan tembok.\n\nTiba-tiba, gadis berambut merah melihatmu. Matanya berbinar.\n\n**"Oh! Pas banget! Sini!"** panggilnya, melambai dengan semangat.`)
+        .addFields(
+            { name: '📍 Lokasi', value: 'SMA Shuka - Gerbang Sekolah', inline: true },
+            { name: '🌅 Waktu', value: 'Sore hari, jam pulang sekolah', inline: true },
+            { name: '👥 Hadir', value: 'Kessoku Band (lengkap)', inline: true }
+        )
+        .setFooter({ text: 'Momen penting... Ini kesempatan untuk masuk ke lingkaran dalam!' });
     
-    // Buttons untuk pilihan
+    // Buttons untuk pilihan (Scene 2: Pertemuan di luar sekolah)
     const actionRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
                 .setCustomId('prologue_choice_enthusiastic_siswa_pindahan')
-                .setLabel('😊 "Tentu, dengan senang hati!"')
+                .setLabel('😊 "Wah, boleh? Aku ikut!"')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('prologue_choice_polite_siswa_pindahan')
-                .setLabel('😌 "Terima kasih, tapi aku bawa bekal sendiri."')
+                .setLabel('😌 "Terima kasih, tapi aku ada urusan lain hari ini."')
                 .setStyle(ButtonStyle.Secondary),
             new ButtonBuilder()
-                .setCustomId('prologue_choice_shy_siswa_pindahan')
-                .setLabel('😳 "Aku... aku tidak ingin mengganggu..."')
+                .setCustomId('prologue_choice_curious_siswa_pindahan')
+                .setLabel('🤔 "STARRY? Tempat apa itu?"')
                 .setStyle(ButtonStyle.Primary)
         );
     
-    await interaction.followUp({ 
-        embeds: [embed2], 
-        components: [actionRow] 
+    await interaction.followUp({ embeds: [embed2] });
+
+    // Jeda untuk build suspense
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
+    // Pesan 3: Dialog Perkenalan Detail
+    const embed3 = new EmbedBuilder()
+        .setColor('#4ecdc4')
+        .setTitle('🎵 Perkenalan dengan Kessoku Band')
+        .setDescription(`Saat kamu mendekat dengan ragu, gadis berambut merah tersenyum lebar.\n\n**"Kenalin, aku Kita Ikuyo! Dan ini teman-teman band-ku dari sekolah sebelah!"**\n\nDia menunjuk gadis berambut pirang. **"Ini Nijika, drummer kami yang paling bisa diandalkan!"**\n\nNijika memberimu senyum hangat. **"Senang bertemu denganmu! Kita sering cerita tentang teman-teman barunya di sekolah!"**\n\nKemudian Kita menunjuk gadis berambut biru. **"Dan ini Ryo, bassist kami yang keren!"**\n\nRyo hanya memberimu anggukan singkat dengan ekspresi datar. **"Yo."**\n\nGadis berambut pink di belakang mereka mengintip nervously. Kita tertawa. **"Dan Bocchi-chan sudah kamu kenal kan? Dia guitarist kami yang amazing tapi super pemalu!"**\n\nKita kemudian menatapmu dengan mata berbinar. **"Ngomong-ngomong, kami mau ke STARRY untuk latihan. Kamu... mau ikut lihat-lihat?"**`)
+        .addFields(
+            { name: '🎭 Kessoku Band', value: 'Kita (Guitar/Vocal) • Nijika (Drums) • Ryo (Bass) • Bocchi (Guitar)', inline: false },
+            { name: '🎯 Tawaran', value: 'Diajak ke STARRY Live House untuk melihat latihan band', inline: false }
+        )
+        .setFooter({ text: 'Ini adalah tawaran besar! Momen pertama untuk masuk ke dunia Kessoku Band...' });
+
+    await interaction.followUp({
+        embeds: [embed3],
+        components: [actionRow]
     });
 }
 
@@ -272,11 +296,30 @@ async function handlePrologueChoice(interaction) {
         const prompt = buildPrologueLLMPrompt(context);
         console.log(`[PROLOGUE_HANDLER] Calling LLM for choice: ${choice} in ${originStory}`);
 
-        // Call LLM API
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const llmResponse = response.text();
+        // Call LLM API with retry mechanism
+        let llmResponse;
+        let retryCount = 0;
+        const maxRetries = 3;
+
+        while (retryCount < maxRetries) {
+            try {
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                llmResponse = response.text();
+                break; // Success, exit retry loop
+            } catch (apiError) {
+                retryCount++;
+                console.error(`[PROLOGUE_HANDLER] LLM API error (attempt ${retryCount}/${maxRetries}):`, apiError.message);
+
+                if (retryCount >= maxRetries) {
+                    throw new Error(`LLM API failed after ${maxRetries} attempts: ${apiError.message}`);
+                }
+
+                // Wait before retry (exponential backoff)
+                await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            }
+        }
 
         console.log(`[PROLOGUE_HANDLER] LLM response received: ${llmResponse.substring(0, 100)}...`);
 
@@ -316,7 +359,45 @@ async function handlePrologueChoice(interaction) {
     } catch (error) {
         console.error('[PROLOGUE_HANDLER] Error handling choice:', error);
 
-        // Send error message
+        // Try to use fallback response first
+        try {
+            const parts = interaction.customId.split('_');
+            const choice = parts[2];
+            const originStory = parts.slice(3).join('_');
+
+            console.log(`[PROLOGUE_HANDLER] Using fallback response for ${choice} in ${originStory}`);
+
+            const fallbackResponse = getFallbackResponse(originStory, choice);
+
+            if (fallbackResponse) {
+                // Apply stat changes
+                await applyStatChanges(interaction.user.id, fallbackResponse.stat_changes);
+
+                // Send narration with warning
+                const warningEmbed = new EmbedBuilder()
+                    .setColor('#ffa502')
+                    .setTitle('⚠️ Menggunakan Respons Alternatif')
+                    .setDescription('Terjadi masalah koneksi, tapi cerita tetap berlanjut!')
+                    .addFields(
+                        { name: '📖 Cerita', value: fallbackResponse.narration, inline: false }
+                    )
+                    .setTimestamp();
+
+                await interaction.editReply({ embeds: [warningEmbed], components: [] });
+
+                // Jeda sebelum conclusion
+                await new Promise(resolve => setTimeout(resolve, 3000));
+
+                // Send conclusion message
+                await sendPrologueConclusion(interaction);
+
+                return true;
+            }
+        } catch (fallbackError) {
+            console.error('[PROLOGUE_HANDLER] Fallback also failed:', fallbackError);
+        }
+
+        // If fallback fails, send error message
         try {
             const errorEmbed = new EmbedBuilder()
                 .setColor('#ff4757')
@@ -360,13 +441,13 @@ function buildPrologueContext(player, originStory, choice) {
             }
         },
         siswa_pindahan: {
-            setting: "SMA Shuka - hari pertama sebagai siswa pindahan",
-            characters: "Kita Ikuyo (siswa populer), Bocchi/Gotou Hitori (siswa pemalu), Nijika Yamada, Ryo Yamada",
-            situation: "Pemain adalah siswa pindahan baru dan Kita mengajak makan siang bersama dengan Bocchi yang pemalu",
+            setting: "SMA Shuka - jam pulang sekolah, pertemuan di luar gerbang sekolah",
+            characters: "Kita Ikuyo (siswa populer dari kelasmu), Bocchi/Gotou Hitori (siswa pemalu dari kelasmu), Nijika Ijichi (drummer ceria dari Shimokitazawa High), Ryo Yamada (bassist cool dari Shimokitazawa High)",
+            situation: "Pemain adalah siswa pindahan baru yang bertemu Kita di luar gerbang sekolah bersama teman-teman bandnya dari sekolah lain. Kita memperkenalkan Nijika dan Ryo, lalu mengajak ke STARRY Live House untuk latihan band",
             choices: {
-                enthusiastic: "Pemain memilih 'Tentu, dengan senang hati!' - pilihan open dan friendly",
-                polite: "Pemain memilih 'Terima kasih, tapi aku bawa bekal sendiri' - pilihan polite tapi distant",
-                shy: "Pemain memilih 'Aku... aku tidak ingin mengganggu...' - pilihan vulnerable dan relatable"
+                enthusiastic: "Pemain memilih 'Wah, boleh? Aku ikut!' - pilihan antusias dan open untuk pengalaman baru",
+                polite: "Pemain memilih 'Terima kasih, tapi aku ada urusan lain hari ini' - pilihan polite tapi menolak dengan halus",
+                curious: "Pemain memilih 'STARRY? Tempat apa itu?' - pilihan penasaran dan ingin tahu lebih banyak"
             }
         },
         musisi_jalanan: {
@@ -622,8 +703,8 @@ function getBridgeContextByOrigin(originStory, currentTime) {
             description: `Setelah interaksi pertama yang menentukan, kamu kini berada di area staff STARRY. Seika telah memberikan orientasi singkat, dan kamu melihat kehidupan live house yang sesungguhnya.\n\nKessoku Band sedang mempersiapkan latihan berikutnya. Nijika mengatur drum kit, Kita menyetel gitar, Ryo memeriksa bass, dan Bocchi... masih terlihat nervous tapi sudah tidak bersembunyi lagi.\n\n**Hari kerja pertamamu baru saja dimulai, dan ada banyak hal yang bisa kamu lakukan.**`
         },
         siswa_pindahan: {
-            location: 'SMA Shuka - Koridor Sekolah',
-            description: `Setelah momen makan siang yang menentukan, kamu kini berjalan di koridor sekolah. Interaksi dengan Kita dan Bocchi tadi telah membuka jalan untuk hubungan yang lebih dalam.\n\nSekolah masih ramai dengan aktivitas siang hari. Beberapa siswa sedang bersiap untuk kegiatan klub, yang lain masih mengobrol di kelas.\n\n**Sebagai siswa pindahan, masih banyak hal yang perlu kamu explore di lingkungan baru ini.**`
+            location: 'Shimokitazawa - Dekat STARRY Live House',
+            description: `Setelah pertemuan yang menentukan di luar gerbang sekolah, kamu kini berada di area Shimokitazawa. Interaksi dengan Kita, Bocchi, Nijika, dan Ryo tadi telah membuka jalan untuk masuk ke dunia musik yang lebih dalam.\n\nJalanan Shimokitazawa ramai dengan aktivitas sore hari. Suara musik dari berbagai live house mulai terdengar, dan atmosphere musik indie mulai terasa.\n\n**Sebagai siswa pindahan yang baru saja diperkenalkan ke dunia Kessoku Band, ada banyak kemungkinan baru yang terbuka untukmu.**`
         },
         musisi_jalanan: {
             location: 'Shimokitazawa Street - Dekat STARRY',
@@ -654,6 +735,20 @@ function getFallbackResponse(originStory, choice) {
             risky: {
                 narration: "Suasana hening sejenak... Tiba-tiba Kita tertawa keras. 'Hahaha! That's actually clever!' Nijika giggling. 'Wah, confident banget!' Ryo tersenyum tipis - rare sight! Bahkan Bocchi mengintip dengan curious. Seika... 'Hmm. Interesting.' Ada hint of amusement di matanya. 'Tapi tetap saja, jangan terlambat.'",
                 stat_changes: { seika_trust: 1, nijika_trust: 2, kita_trust: 2, ryo_trust: 1, bocchi_comfort: 1 }
+            }
+        },
+        siswa_pindahan: {
+            enthusiastic: {
+                narration: "Mata Kita berbinar mendengar antusiasme mu. 'Yes! Aku suka semangat seperti itu!' Nijika tersenyum hangat. 'Senang banget ada yang tertarik dengan musik!' Ryo mengangguk pelan - approval dari dia itu rare. Bahkan Bocchi mengintip dengan hopeful dari balik Nijika. 'Ayo, STARRY nggak jauh kok!' kata Kita sambil mulai berjalan.",
+                stat_changes: { kita_trust: 2, nijika_trust: 2, ryo_trust: 1, bocchi_comfort: 1 }
+            },
+            polite: {
+                narration: "Kita terlihat sedikit disappointed tapi tetap tersenyum. 'Oh, okay! Nggak apa-apa kok!' Nijika mengangguk understanding. 'Mungkin lain kali ya!' Ryo hanya shrug, tidak terlalu peduli. Bocchi terlihat sedikit relieved - mungkin dia juga nervous dengan ide ada orang baru. 'Kalau berubah pikiran, STARRY selalu terbuka!' kata Kita sebelum mereka pergi.",
+                stat_changes: { kita_trust: 0, nijika_trust: 1, ryo_trust: 0, bocchi_comfort: 0 }
+            },
+            curious: {
+                narration: "Kita mata berbinar excited. 'Oh! STARRY itu live house tempat kami latihan! Tempatnya super keren!' Nijika menambahkan dengan antusias, 'Kakakku yang punya! Banyak band indie yang perform di sana!' Ryo mengangguk. 'Sound system-nya bagus.' Bocchi mengintip curious - sepertinya dia juga excited untuk show off tempat latihan mereka. 'Mau lihat? Pasti kamu bakal suka!' ajak Kita.",
+                stat_changes: { kita_trust: 1, nijika_trust: 1, ryo_trust: 1, bocchi_comfort: 1 }
             }
         }
     };

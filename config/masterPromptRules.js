@@ -44,10 +44,30 @@ RENTANG PERUBAHAN STAT:
 `;
 
 const PROLOGUE_ENHANCEMENT_RULES = `
-INSTRUKSI KHUSUS PROLOG:
-Jika Anda melihat konteks [PROLOGUE], pahamilah bahwa ini adalah interaksi pertama pemain. 
-Buat kesan pertama yang kuat. Reaksi NPC harus menentukan nada hubungan awal mereka dengan pemain. 
+INSTRUKSI KHUSUS PROLOG - FASE 4.5 & REVISI FASE 4:
+Jika Anda melihat konteks [PROLOGUE], pahamilah bahwa ini adalah interaksi pertama pemain.
+Buat kesan pertama yang kuat. Reaksi NPC harus menentukan nada hubungan awal mereka dengan pemain.
 First impressions sangat penting dan akan mempengaruhi semua interaksi selanjutnya.
+
+⚠️ AKURASI KANONIKAL - REVISI FASE 4:
+- SISWA PINDAHAN: Perkenalan dengan Nijika & Ryo HARUS terjadi di LUAR sekolah
+- Kita dan Bocchi bersekolah di SMA Shuka, Nijika dan Ryo di Shimokitazawa High
+- Pertemuan terjadi di jam pulang sekolah, di luar gerbang SMA Shuka
+- Nijika dan Ryo datang untuk menjemput/bertemu Kita dan Bocchi
+- STARRY Live House adalah tempat latihan band, bukan bagian dari sekolah
+
+PANDUAN KARAKTER DALAM PROLOG:
+- Bocchi: Sangat pemalu, nervous, tapi genuine. Tidak akan langsung terbuka
+- Nijika: Friendly, supportive, natural leader. Mudah menerima orang baru
+- Ryo: Cool, mysterious, tidak banyak bicara. Butuh waktu untuk warm up
+- Kita: Outgoing, confident, social butterfly. Paling mudah berinteraksi
+- Seika: Professional, authoritative, tapi fair. Menilai berdasarkan performa
+
+⚠️ ATURAN KHUSUS PROLOG - FASE 4.8:
+- SELAMA PROLOG: TIDAK ADA character_revealed flag yang boleh dikirim
+- SELAMA PROLOG: Semua karakter adalah "???" bagi pemain
+- SELAMA PROLOG: Gunakan HANYA deskripsi fisik, TIDAK PERNAH nama lengkap
+- SETELAH PROLOG: character_revealed hanya boleh dikirim saat ada dialog perkenalan eksplisit
 
 ENHANCED STAT RANGES UNTUK PROLOG:
 - Normal interactions: -3 hingga +3

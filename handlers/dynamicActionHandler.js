@@ -125,9 +125,20 @@ async function handleDynamicActionButton(interaction) {
             }
         }
         
+        let updatedPlayer = player;
         if (Object.keys(updates).length > 0) {
             await updatePlayerStats(playerId, updates);
             console.log(`[DYNAMIC_ACTION] Database successfully updated`);
+
+            // Get updated player data for spontaneous interaction system
+            try {
+                const { getPlayer } = require('../database');
+                updatedPlayer = await getPlayer(playerId);
+                console.log(`[DYNAMIC_ACTION] Retrieved updated player data for spontaneous interactions`);
+            } catch (error) {
+                console.warn(`[DYNAMIC_ACTION] Could not retrieve updated player data, using original:`, error.message);
+                updatedPlayer = player;
+            }
         }
         
         // Create result embed
@@ -172,7 +183,7 @@ async function handleDynamicActionButton(interaction) {
                 interaction,
                 cachedData.context.location,
                 cachedData.context.characters_present,
-                updatedPlayer || player
+                updatedPlayer
             );
         } catch (error) {
             console.error('[SPONTANEOUS] Error checking spontaneous interaction:', error);

@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { getPlayer, addPlayer } = require('../database');
 const { startPrologue } = require('../game_logic/prologue_handler');
+const { getCurrentJST } = require('../utils/time');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -41,9 +42,27 @@ module.exports = {
                 return await interaction.reply({ embeds: [embed], ephemeral: true });
             }
             
+            // FASE 4.8: Validasi waktu prolog sebelum memulai
+            const timeValidation = this.validatePrologueTime(originStoryChoice);
+            if (!timeValidation.isValid) {
+                const timeEmbed = new EmbedBuilder()
+                    .setColor('#ffa502')
+                    .setTitle('⏰ Waktu Tidak Tepat')
+                    .setDescription(timeValidation.message)
+                    .addFields(
+                        { name: '🕐 Waktu Saat Ini', value: timeValidation.currentTime, inline: true },
+                        { name: '⏰ Waktu yang Tepat', value: timeValidation.validTime, inline: true },
+                        { name: '💡 Saran', value: timeValidation.suggestion, inline: false }
+                    )
+                    .setFooter({ text: 'Dunia Bocchi the Rock mengikuti jadwal yang realistis!' })
+                    .setTimestamp();
+
+                return await interaction.reply({ embeds: [timeEmbed], ephemeral: true });
+            }
+
             // Tentukan nilai awal berdasarkan origin story
             const initialValues = this.getInitialValues(originStoryChoice);
-            
+
             // Daftarkan pemain baru dengan nilai awal yang sesuai
             await addPlayer(discordId, originStoryChoice, initialValues.actionPoints);
             
@@ -71,7 +90,64 @@ module.exports = {
             await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
         }
     },
-    
+
+    // FASE 4.8: Validasi waktu prolog untuk memastikan realism
+    validatePrologueTime(originStoryChoice) {
+        const currentTimeJST = getCurrentJST();
+        const currentHour = currentTimeJST.hour;
+        const timeString = `${currentTimeJST.dayName}, ${currentTimeJST.timeString} JST`;
+
+        switch (originStoryChoice) {
+            case 'siswa_pindahan':
+                // Hari pertama sekolah: 8:00 - 10:00 pagi (inclusive)
+                if (currentHour < 8 || currentHour >= 11) {
+                    return {
+                        isValid: false,
+                        message: `Kamu tidak bisa memulai sebagai 'Siswa Pindahan' saat ini. Hari pertama sekolah hanya terjadi antara jam 8:00 dan 10:00 pagi JST.`,
+                        currentTime: timeString,
+                        validTime: '8:00 - 10:00 pagi JST',
+                        suggestion: 'Silakan coba lagi besok pagi atau pilih origin story lain yang sesuai dengan waktu saat ini.'
+                    };
+                }
+                break;
+
+            case 'pekerja_starry':
+                // Mulai kerja di live house: 16:00 - 22:00 (sore hingga malam)
+                if (currentHour < 16 || currentHour > 22) {
+                    return {
+                        isValid: false,
+                        message: `Kamu tidak bisa memulai sebagai 'Pekerja Baru di STARRY' saat ini. Shift kerja di live house dimulai antara jam 16:00 dan 22:00 JST.`,
+                        currentTime: timeString,
+                        validTime: '16:00 - 22:00 JST',
+                        suggestion: 'Live house STARRY buka sore hari. Coba lagi nanti atau pilih origin story lain.'
+                    };
+                }
+                break;
+
+            case 'musisi_jalanan':
+                // Musisi jalanan: 10:00 - 20:00 (siang hingga sore)
+                if (currentHour < 10 || currentHour > 20) {
+                    return {
+                        isValid: false,
+                        message: `Kamu tidak bisa memulai sebagai 'Musisi Jalanan' saat ini. Waktu terbaik untuk busking adalah antara jam 10:00 dan 20:00 JST.`,
+                        currentTime: timeString,
+                        validTime: '10:00 - 20:00 JST',
+                        suggestion: 'Musisi jalanan biasanya tampil saat ada banyak orang di jalanan. Coba lagi siang atau sore hari.'
+                    };
+                }
+                break;
+
+            default:
+                // Origin story tidak dikenal, izinkan kapan saja
+                break;
+        }
+
+        return {
+            isValid: true,
+            currentTime: timeString
+        };
+    },
+
     // Helper function untuk mendapatkan nilai awal berdasarkan origin story
     getInitialValues(originStoryChoice) {
         switch (originStoryChoice) {

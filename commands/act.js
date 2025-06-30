@@ -13,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('act')
-        .setDescription('Lihat pilihan aksi dinamis berdasarkan situasi saat ini!'),
+        .setDescription('Lihat pilihan aksi yang tersedia di lokasi saat ini (gunakan /go untuk berpindah lokasi)'),
 
     async execute(interaction) {
         const discordId = interaction.user.id;
@@ -240,11 +240,11 @@ module.exports = {
      * Display action choices with dynamic buttons
      */
     async displayActionChoices(interaction, player, situationContext, actionChoices, isFollowUp = false) {
-        // Create embed with situation context
+        // Create embed with situation context (Fase 4.8: Fokus pada aksi lokal)
         const embed = new EmbedBuilder()
             .setColor('#4ecdc4')
             .setTitle('🎭 Pilihan Aksi Tersedia')
-            .setDescription(`**${situationContext.time.day}, ${situationContext.time.time_string} JST**\n\nKamu berada di **${situationContext.location}**. Cuaca ${situationContext.weather.name} menciptakan suasana ${situationContext.weather.mood}.\n\nPilih aksi yang ingin kamu lakukan:`)
+            .setDescription(`**${situationContext.time.day}, ${situationContext.time.time_string} JST**\n\nKamu berada di **${situationContext.location}**. Cuaca ${situationContext.weather.name} menciptakan suasana ${situationContext.weather.mood}.\n\nPilih aksi yang ingin kamu lakukan di lokasi ini:`)
             .addFields(
                 { name: '📍 Lokasi', value: situationContext.location, inline: true },
                 { name: '⚡ AP Tersedia', value: situationContext.player_stats.action_points.toString(), inline: true },
@@ -286,7 +286,7 @@ module.exports = {
             actionRows.push(row);
         }
 
-        embed.setFooter({ text: 'Pilih aksi dengan menekan tombol. Aksi yang dinonaktifkan membutuhkan AP lebih banyak.' })
+        embed.setFooter({ text: 'Pilih aksi dengan menekan tombol. Gunakan /go untuk berpindah lokasi.' })
             .setTimestamp();
 
         // Send the message with buttons

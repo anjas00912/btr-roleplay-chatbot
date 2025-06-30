@@ -15,20 +15,22 @@ async function handleButtonInteraction(interaction) {
     console.log(`[BUTTON] Button pressed: ${customId} by ${interaction.user.id}`);
     
     try {
-        // Handle prologue choice buttons (new system)
-        if (customId.startsWith('prologue_choice_')) {
+        // Handle prologue choice buttons (new system) - more specific pattern first
+        if (customId.startsWith('prologue_choice_') && customId.split('_').length >= 4) {
+            // New system: prologue_choice_choice_originStory (e.g., prologue_choice_polite_siswa_pindahan)
             const handled = await handlePrologueChoice(interaction);
             if (handled) {
-                console.log(`[BUTTON] Prologue choice handled: ${customId}`);
+                console.log(`[BUTTON] Prologue choice handled (new system): ${customId}`);
                 return;
             }
         }
 
-        // Handle prologue buttons (original system)
-        if (customId.startsWith('prologue_')) {
+        // Handle prologue buttons (original system) - less specific pattern
+        if (customId.startsWith('prologue_') && !customId.startsWith('prologue_choice_')) {
+            // Original system: prologue_choice_originStory (e.g., prologue_explore_pekerja_starry)
             const handled = await handlePrologueButton(interaction);
             if (handled) {
-                console.log(`[BUTTON] Prologue button handled: ${customId}`);
+                console.log(`[BUTTON] Prologue button handled (original system): ${customId}`);
                 return;
             }
         }
