@@ -20,7 +20,8 @@ class SituationDirector {
         const socialAnalysis = this.analyzeSocialContext(context.characters_present, context.player_stats);
         const weatherAnalysis = this.analyzeWeatherContext(context.weather);
         const progressionAnalysis = this.analyzeProgressionContext(context.player_stats, context.origin_story);
-        
+        const energyAnalysis = this.analyzeEnergyContext(context.player_stats.energy || 100);
+
         return `🎭 SITUATION DIRECTOR - BOCCHI THE ROCK! DYNAMIC ACTION SYSTEM
 
 Anda adalah Sutradara Situasi tingkat ahli untuk game simulasi immersive "Bocchi the Rock!". Tugas Anda adalah menganalisis konteks situasi secara mendalam dan menghasilkan 3-5 pilihan aksi yang:
@@ -43,6 +44,8 @@ ${weatherAnalysis}
 
 ${progressionAnalysis}
 
+${energyAnalysis}
+
 ═══════════════════════════════════════════════════════════════
 
 🎯 ATURAN PEMBUATAN AKSI LANJUTAN:
@@ -52,6 +55,7 @@ KATEGORI AKSI:
 2. 💬 SOSIAL: Dialog, interaksi grup, networking, bonding
 3. 🔍 EKSPLORASI: Jelajahi lokasi, temukan hal baru, observasi
 4. 💭 REFLEKTIF: Introspeksi, planning, journaling, meditasi
+5. ⚡ PEMULIHAN: Istirahat, makan, minum, relaksasi (FASE 3.1)
 5. 🎯 PRODUKTIF: Kerja, belajar, skill development, achievement
 6. 🎪 SPONTAN: Aksi unik berdasarkan situasi khusus
 
@@ -391,6 +395,42 @@ CONTOH RESPONS BERKUALITAS:
 - Energy Level: High, dapat handle aktivitas berat (3-5 AP)`;
         }
         
+        return analysis;
+    }
+
+    /**
+     * FASE 3.1: Analyze energy context for action generation
+     */
+    static analyzeEnergyContext(energy) {
+        const { getEnergyZone } = require('../database');
+        const energyZone = getEnergyZone(energy);
+
+        let analysis = `⚡ ANALISIS ENERGI: ${energy}/100 (${energyZone.name})`;
+
+        analysis += `
+- Status: ${energyZone.description}
+- Zona: ${energyZone.zone}
+- Performa: ${Math.round(energyZone.statMultiplier * 100)}% dari normal
+- Risiko Gagal: ${Math.round(energyZone.failureChance * 100)}%`;
+
+        // Rekomendasi aksi berdasarkan energi
+        if (energyZone.zone === 'optimal') {
+            analysis += `
+- Rekomendasi: Semua jenis aksi tersedia, performa optimal
+- Fokus: Aksi produktif, interaksi sosial, tantangan baru`;
+        } else if (energyZone.zone === 'tired') {
+            analysis += `
+- Rekomendasi: Aksi ringan hingga sedang, hindari yang terlalu berat
+- Fokus: Aktivitas santai, pemulihan ringan, interaksi casual
+- SERTAKAN: 1-2 opsi pemulihan energi (istirahat, minum, snack)`;
+        } else {
+            analysis += `
+- Rekomendasi: PRIORITASKAN aksi pemulihan energi!
+- Fokus: Istirahat, tidur, makan, relaksasi
+- WAJIB SERTAKAN: 2-3 opsi pemulihan energi yang kuat
+- Peringatan: Aksi berat sangat berisiko gagal dan merugikan`;
+        }
+
         return analysis;
     }
 }

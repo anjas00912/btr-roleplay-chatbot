@@ -34,13 +34,32 @@ CONTOH PENERAPAN:
 - "Jalan-jalan sendirian" → kita_comfort +1 (TIDAK bertemu Kita)
 - "Bicara dengan gadis berambut biru" → ryo_trust +1 (Ryo belum dikenal, TIDAK BOLEH ada perubahan stat)
 
+⚠️ SISTEM ENERGI BARU - FASE 3.1:
+Sistem: Perhatikan level 'Energi' pemain saat ini. Gunakan ini untuk mewarnai narasi dan menentukan hasil aksi.
+
+ATURAN ENERGI:
+• Jika Energi > 40 (Zona Optimal): Narasikan aksi yang penuh semangat dan efisien. Berikan hasil yang positif dengan bonus 20%.
+• Jika Energi 11-40 (Zona Lelah): Narasikan pemain yang terlihat sedikit lelah atau kurang fokus. Hasil aksi 30% kurang efektif.
+• Jika Energi <= 10 (Zona Kritis): Narasikan pemain yang sangat kelelahan. Berikan peluang 40% untuk kegagalan total.
+
+CONTOH NARASI ENERGI:
+- Energi Tinggi: "Dengan semangat penuh, kamu..."
+- Energi Rendah: "Meski merasa lelah, kamu berusaha..."
+- Energi Kritis: "Tanganmu gemetar karena lelah saat kamu mencoba... [40% chance gagal total]"
+
+JIKA AKSI GAGAL KARENA ENERGI RENDAH:
+- Berikan konsekuensi negatif: stat relasi -1 hingga -3
+- Narasikan kegagalan yang realistis: "Karena kelelahan, kamu..."
+- Tetap konsumsi energi meski gagal
+
 RENTANG PERUBAHAN STAT:
-- Action Points: Selalu sesuai biaya aksi (biasanya -1 hingga -5)
+- Energi: Selalu sesuai biaya aksi (biasanya -5 hingga -15)
 - Interaksi Ringan: -1 hingga +1 untuk stats yang relevan (HANYA jika karakter sudah dikenal)
 - Interaksi Signifikan: -3 hingga +3 untuk stats yang relevan (HANYA jika karakter sudah dikenal)
 - KHUSUS PROLOG: Hingga +5 untuk first impression yang exceptional
 - Cuaca dan mood: Modifier ±1 pada hasil akhir
 - Nilai Awal Perkenalan: 1-5 untuk Trust/Comfort berdasarkan kesan sebelumnya
+- EFEK ENERGI: Multiply hasil dengan energyZone.statMultiplier (0.3x untuk kritis, 0.7x untuk lelah, 1.2x untuk optimal)
 `;
 
 const PROLOGUE_ENHANCEMENT_RULES = `

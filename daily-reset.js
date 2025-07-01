@@ -3,8 +3,8 @@ const { getPlayer, updatePlayer } = require('./database');
 const { generateWeather } = require('./game_logic/weather');
 const { getCurrentJST, isNewDayInJST, getDisplayTimeInfo } = require('./utils/time');
 
-// Konstanta untuk sistem game
-const MAX_ACTION_POINTS = 10;
+// FASE 3.1: Konstanta untuk sistem energi
+const MAX_ENERGY = 100;
 
 /**
  * Fungsi untuk menghasilkan cuaca baru menggunakan sistem weather dinamis
@@ -50,9 +50,9 @@ async function checkAndResetDailyStats(userId, interaction = null) {
             const newWeather = generateNewWeather();
             console.log(`[DAILY_RESET] New weather: ${newWeather}`);
             
-            // Update database dengan reset harian menggunakan JST
+            // FASE 3.1: Update database dengan reset harian menggunakan sistem energi
             const updates = {
-                action_points: MAX_ACTION_POINTS,
+                energy: MAX_ENERGY,
                 current_weather: newWeather,
                 last_played_date: todayJST,
                 last_reset_timestamp: jstInfo.utcString // Simpan timestamp UTC untuk referensi
@@ -155,7 +155,7 @@ function createDailyResetNotification(newWeather) {
     
     const randomGreeting = greetings[Math.floor(Math.random() * greetings.length)];
     
-    return `${randomGreeting} ${newWeather} Kamu merasa segar dan memiliki ${MAX_ACTION_POINTS} AP untuk digunakan hari ini.`;
+    return `${randomGreeting} ${newWeather} Kamu merasa segar dan energimu telah pulih sepenuhnya (${MAX_ENERGY}/100)!`;
 }
 
 /**
@@ -171,7 +171,7 @@ async function sendDailyResetNotification(interaction, notification, newWeather)
         .setDescription(notification)
         .addFields(
             { name: '🌤️ Cuaca Hari Ini', value: newWeather, inline: false },
-            { name: '⚡ Action Points', value: `${MAX_ACTION_POINTS}/${MAX_ACTION_POINTS}`, inline: true },
+            { name: '⚡ Energi', value: `${MAX_ENERGY}/100 💪`, inline: true },
             { name: '📅 Tanggal', value: new Date().toLocaleDateString('id-ID'), inline: true }
         )
         .setFooter({ text: 'Selamat bermain!' })
@@ -194,31 +194,78 @@ async function sendDailyResetNotification(interaction, notification, newWeather)
 }
 
 /**
- * Helper function untuk mengecek apakah pemain memiliki AP yang cukup
+ * FASE 3.1: Helper function untuk mengecek energi pemain (selalu bisa beraksi)
  * @param {Object} player - Player object dari database
- * @param {number} requiredAP - AP yang dibutuhkan (default: 1)
- * @returns {boolean} - True jika AP cukup
+ * @param {number} energyCost - Energi yang akan dikonsumsi (default: 5)
+ * @returns {Object} - Info energi dan zona
  */
-function hasEnoughAP(player, requiredAP = 1) {
-    return player && player.action_points && player.action_points >= requiredAP;
+function checkEnergyStatus(player, energyCost = 5) {
+    const { getEnergyZone } = require('./database');
+
+    if (!player || player.energy === undefined) {
+        return {
+            canAct: false,
+            currentEnergy: 0,
+            energyZone: getEnergyZone(0),
+            warning: 'Data pemain tidak valid'
+        };
+    }
+
+    const currentEnergy = player.energy || 0;
+    const energyAfterAction = Math.max(0, currentEnergy - energyCost);
+    const energyZone = getEnergyZone(currentEnergy);
+
+    return {
+        canAct: true, // Selalu bisa beraksi dalam sistem baru
+        currentEnergy,
+        energyAfterAction,
+        energyZone,
+        warning: currentEnergy <= 10 ? 'Energi sangat rendah! Aksi berisiko gagal.' : null
+    };
 }
 
 /**
- * Helper function untuk membuat embed error ketika AP tidak cukup
- * @param {number} currentAP - AP saat ini
- * @returns {EmbedBuilder} - Embed error
+ * FASE 3.1: Helper function untuk membuat embed warning energi rendah
+ * @param {number} currentEnergy - Energi saat ini
+ * @param {Object} energyZone - Info zona energi
+ * @returns {EmbedBuilder} - Embed warning
  */
-function createInsufficientAPEmbed(currentAP = 0) {
+function createEnergyWarningEmbed(currentEnergy, energyZone) {
     return new EmbedBuilder()
-        .setColor('#ff6b6b')
-        .setTitle('😴 Terlalu Lelah')
-        .setDescription('Kamu terlalu lelah hari ini untuk melakukan aksi ini.')
+        .setColor(energyZone.color)
+        .setTitle(`${energyZone.emoji} ${energyZone.name}`)
+        .setDescription(`${energyZone.description}\n\nKamu masih bisa beraksi, tapi dengan konsekuensi!`)
         .addFields(
-            { name: '⚡ Action Points Tersisa', value: `${currentAP}/${MAX_ACTION_POINTS}`, inline: true },
-            { name: '💡 Tips', value: 'Action Points akan reset besok. Istirahat yang cukup!', inline: false }
+            { name: '⚡ Energi Saat Ini', value: `${currentEnergy}/100`, inline: true },
+            { name: '📊 Efek Performa', value: `${Math.round(energyZone.statMultiplier * 100)}% dari normal`, inline: true },
+            { name: '⚠️ Risiko Gagal', value: `${Math.round(energyZone.failureChance * 100)}%`, inline: true }
         )
-        .setFooter({ text: 'Kembali lagi besok untuk melanjutkan petualangan!' })
+        .addFields({
+            name: '💡 Tips',
+            value: energyZone.zone === 'critical'
+                ? 'Sangat disarankan untuk istirahat! Aksi berisiko tinggi gagal dan merugikan.'
+                : 'Pertimbangkan untuk istirahat agar performa optimal.',
+            inline: false
+        })
+        .setFooter({ text: 'Sistem Energi v3.1 • Kamu selalu bisa beraksi!' })
         .setTimestamp();
+}
+
+// Backward compatibility - fungsi lama untuk transisi
+function hasEnoughAP(player, requiredAP = 1) {
+    // Konversi ke sistem energi baru
+    const energyEquivalent = requiredAP * 5; // 1 AP = 5 Energy
+    const energyStatus = checkEnergyStatus(player, energyEquivalent);
+    return energyStatus.canAct;
+}
+
+function createInsufficientAPEmbed(currentAP = 0, requiredAP = 1) {
+    // Konversi ke sistem energi baru
+    const currentEnergy = currentAP * 10; // Rough conversion
+    const { getEnergyZone } = require('./database');
+    const energyZone = getEnergyZone(currentEnergy);
+
+    return createEnergyWarningEmbed(currentEnergy, energyZone);
 }
 
 /**
@@ -240,10 +287,15 @@ function getCurrentJSTInfo() {
 module.exports = {
     checkAndResetDailyStats,
     generateNewWeather,
-    hasEnoughAP,
-    createInsufficientAPEmbed,
     updatePlayerAbsolute,
     getJSTTimeInfo,
     getCurrentJSTInfo,
-    MAX_ACTION_POINTS
+    // FASE 3.1: New energy system functions
+    checkEnergyStatus,
+    createEnergyWarningEmbed,
+    MAX_ENERGY,
+    // Backward compatibility
+    hasEnoughAP,
+    createInsufficientAPEmbed,
+    MAX_ACTION_POINTS: MAX_ENERGY // Alias untuk backward compatibility
 };

@@ -1,6 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { getPlayer } = require('../database');
+const { getPlayer, updatePlayer } = require('../database');
 const { checkAndResetDailyStats } = require('../daily-reset');
 const { getWeatherInfo, getWeatherEffects, getWeatherMood } = require('../game_logic/weather');
 const { getCurrentJST } = require('../utils/time');
@@ -13,12 +13,53 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('act')
-        .setDescription('Lihat pilihan aksi yang tersedia di lokasi saat ini (gunakan /go untuk berpindah lokasi)'),
+        .setDescription('Lakukan aksi di lokasi saat ini - tanpa argumen untuk menu, dengan argumen untuk aksi bebas')
+        .addStringOption(option =>
+            option.setName('deskripsi_aksi')
+                .setDescription('(Opsional) Jelaskan aksi kustom yang ingin kamu lakukan')
+                .setRequired(false)
+        ),
 
     async execute(interaction) {
         const discordId = interaction.user.id;
+        const customAction = interaction.options.getString('deskripsi_aksi');
 
         try {
+            // FASE 4.9: Logika percabangan untuk sistem aksi ganda
+            if (customAction) {
+                // Jika pemain memberikan deskripsi, jalankan alur Aksi Bebas
+                return await this.executeCustomAction(interaction, customAction);
+            } else {
+                // Jika tidak ada deskripsi, jalankan alur Aksi Terstruktur yang sudah ada
+                return await this.executeStructuredAction(interaction);
+            }
+        } catch (error) {
+            console.error('[ACT] Error executing action command:', error);
+
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#ff4757')
+                .setTitle('❌ Error Aksi')
+                .setDescription('Terjadi kesalahan saat memproses aksi. Silakan coba lagi.')
+                .setTimestamp();
+
+            if (interaction.deferred) {
+                await interaction.editReply({ embeds: [errorEmbed] });
+            } else {
+                await interaction.reply({ embeds: [errorEmbed] });
+            }
+        }
+    },
+
+    /**
+     * FASE 4.9: Alur Aksi Terstruktur (logika yang sudah ada)
+     */
+    async executeStructuredAction(interaction) {
+        const discordId = interaction.user.id;
+
+        try {
+            // Defer reply untuk operasi yang mungkin lama
+            await interaction.deferReply();
+
             // Step 1: Validasi Pemain dan Reset Harian
             console.log(`[ACT] Validating player ${discordId} for dynamic actions`);
             let player = await getPlayer(discordId);
@@ -35,7 +76,7 @@ module.exports = {
                     })
                     .setTimestamp();
 
-                return await interaction.reply({ embeds: [embed], ephemeral: true });
+                return await interaction.editReply({ embeds: [embed] });
             }
 
             // Cek dan lakukan reset harian jika diperlukan
@@ -59,12 +100,8 @@ module.exports = {
                     )
                     .setTimestamp();
 
-                // Jika sudah ada notifikasi reset harian, kirim sebagai followUp
-                if (resetResult.isNewDay) {
-                    return await interaction.followUp({ embeds: [embed], ephemeral: true });
-                } else {
-                    return await interaction.reply({ embeds: [embed], ephemeral: true });
-                }
+                // Karena sudah deferReply di awal, selalu gunakan editReply
+                return await interaction.editReply({ embeds: [embed] });
             }
 
             console.log(`[ACT] Player validated. AP: ${player.action_points}`);
@@ -191,6 +228,235 @@ module.exports = {
     },
 
     /**
+     * FASE 4.9: Alur Aksi Bebas (aksi kustom pemain)
+     */
+    async executeCustomAction(interaction, customAction) {
+        const discordId = interaction.user.id;
+
+        try {
+            // Defer reply untuk operasi yang mungkin lama
+            await interaction.deferReply();
+
+            console.log(`[ACT] Processing custom action: "${customAction}" for ${discordId}`);
+
+            // 1. Validasi Pemain dan Reset Harian
+            let player = await getPlayer(discordId);
+
+            if (!player) {
+                const embed = new EmbedBuilder()
+                    .setColor('#ff6b6b')
+                    .setTitle('❌ Belum Memulai Hidup')
+                    .setDescription('Kamu belum memulai hidup dalam dunia Bocchi the Rock!')
+                    .addFields({
+                        name: '🚀 Cara Memulai',
+                        value: 'Gunakan command `/start` untuk memulai petualangan Anda!',
+                        inline: false
+                    })
+                    .setTimestamp();
+
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // Cek dan lakukan reset harian jika diperlukan
+            const resetResult = await checkAndResetDailyStats(discordId);
+            if (resetResult.player) {
+                player = resetResult.player;
+            }
+
+            // 2. FASE 3.1: Validasi energi minimum (aksi bebas membutuhkan setidaknya 5 energi)
+            const currentEnergy = player.energy || 100;
+            if (currentEnergy < 5) {
+                // FASE 3.1: Update untuk sistem energi
+                const { getEnergyZone } = require('../database');
+                const currentEnergy = player.energy || 100;
+                const energyZone = getEnergyZone(currentEnergy);
+
+                const embed = new EmbedBuilder()
+                    .setColor(energyZone.color)
+                    .setTitle(`${energyZone.emoji} Energi Rendah`)
+                    .setDescription('Energimu sangat rendah untuk aksi bebas. Aksi bebas membutuhkan setidaknya 5 energi.')
+                    .addFields(
+                        { name: '⚡ Energi Saat Ini', value: `${currentEnergy}/100`, inline: true },
+                        { name: '🎯 Zona Energi', value: energyZone.name, inline: true },
+                        { name: '💡 Saran', value: 'Gunakan aksi pemulihan energi atau tunggu reset harian.', inline: false }
+                    )
+                    .setTimestamp();
+
+                return await interaction.editReply({ embeds: [embed] });
+            }
+
+            // 3. Build konteks situasi
+            const situationContext = await this.buildSituationContext(player);
+
+            // 4. Panggil LLM dengan Prompt Penilaian Aksi Bebas
+            const customActionResult = await this.evaluateCustomAction(player, situationContext, customAction);
+
+            // 5. Apply stat changes ke database
+            if (customActionResult.stat_changes && Object.keys(customActionResult.stat_changes).length > 0) {
+                await updatePlayer(discordId, customActionResult.stat_changes);
+                console.log(`[ACT] Custom action stat changes applied:`, customActionResult.stat_changes);
+            }
+
+            // 6. Kirim hasil narasi
+            await this.sendCustomActionResult(interaction, customActionResult, customAction);
+
+            console.log(`[ACT] Custom action "${customAction}" completed for ${discordId}`);
+
+        } catch (error) {
+            console.error('[ACT] Error executing custom action:', error);
+
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#ff4757')
+                .setTitle('❌ Error Aksi Bebas')
+                .setDescription('Terjadi kesalahan saat memproses aksi bebas. Silakan coba lagi.')
+                .setTimestamp();
+
+            await interaction.editReply({ embeds: [errorEmbed] });
+        }
+    },
+
+    /**
+     * FASE 4.9: Evaluasi aksi kustom dengan LLM Game Master
+     */
+    async evaluateCustomAction(player, situationContext, customAction) {
+        try {
+            const prompt = this.buildCustomActionPrompt(player, situationContext, customAction);
+            console.log(`[ACT] Custom action evaluation prompt built, length: ${prompt.length} characters`);
+
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const llmResponse = response.text();
+
+            console.log(`[ACT] Custom action evaluation response received: ${llmResponse.substring(0, 100)}...`);
+
+            // Parse respons JSON
+            const cleanResponse = llmResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            const parsedResponse = JSON.parse(cleanResponse);
+
+            // Validasi struktur respons
+            if (!parsedResponse.narration || !parsedResponse.stat_changes) {
+                throw new Error('Invalid LLM response structure for custom action');
+            }
+
+            return parsedResponse;
+
+        } catch (error) {
+            console.error('[ACT] Error evaluating custom action:', error);
+
+            // Fallback response untuk aksi bebas
+            return {
+                narration: `Kamu mencoba untuk ${customAction}. Meskipun niatmu baik, situasinya tidak memungkinkan untuk melakukan hal tersebut saat ini. Mungkin kamu bisa mencoba pendekatan yang berbeda atau menunggu momen yang lebih tepat.`,
+                stat_changes: {
+                    action_points: -1
+                }
+            };
+        }
+    },
+
+    /**
+     * FASE 4.9: Build prompt untuk evaluasi aksi kustom
+     */
+    buildCustomActionPrompt(player, situationContext, customAction) {
+        const currentTime = getCurrentJST();
+        const weatherInfo = getWeatherInfo(player.current_weather || 'Cerah');
+
+        return `Anda adalah seorang Game Master yang sangat teliti dan realistis. Pemain ingin mencoba melakukan sebuah aksi kustom. Tugas Anda adalah menilai kelayakan aksi ini, menentukan hasilnya, dan menarasikannya secara realistis berdasarkan konteks yang ada.
+
+KONTEKS SITUASI:
+- Pemain: ${player.origin_story} dengan ${player.action_points} AP
+- Lokasi: ${situationContext.location}
+- Waktu JST: ${currentTime.dayName}, ${currentTime.timeString}
+- Cuaca: ${weatherInfo.condition} (${weatherInfo.mood})
+
+KARAKTER DI LOKASI:
+${situationContext.characters_present.map(char =>
+    `- ${char.name}: ${char.activity} (${char.availability})`
+).join('\n')}
+
+STATUS HUBUNGAN PEMAIN:
+- Bocchi: Trust ${player.bocchi_trust || 0}, Comfort ${player.bocchi_comfort || 0}, Affection ${player.bocchi_affection || 0}
+- Nijika: Trust ${player.nijika_trust || 0}, Comfort ${player.nijika_comfort || 0}, Affection ${player.nijika_affection || 0}
+- Ryo: Trust ${player.ryo_trust || 0}, Comfort ${player.ryo_comfort || 0}, Affection ${player.ryo_affection || 0}
+- Kita: Trust ${player.kita_trust || 0}, Comfort ${player.kita_comfort || 0}, Affection ${player.kita_affection || 0}
+
+AKSI KUSTOM YANG DICOBA PEMAIN: "${customAction}"
+
+TUGAS EVALUASI:
+1. Kelayakan (Feasibility): Apakah aksi ini mungkin dilakukan secara fisik dan logis dalam konteks saat ini?
+2. Kesesuaian Sosial (Social Appropriateness): Berdasarkan kepribadian karakter target dan level relationship saat ini, bagaimana kemungkinan reaksinya?
+3. Risiko vs Reward: Aksi berani/intim memiliki potensi reward tinggi tapi risiko gagal juga tinggi
+
+TUGAS NARASI:
+1. Narasikan Upaya Pemain: Jelaskan bagaimana pemain mencoba melakukan aksi tersebut
+2. Narasikan Hasil & Reaksi Karakter: Deskripsikan hasil dari aksi tersebut. Apakah berhasil? Bagaimana reaksi karakter? Hasil HARUS bergantung pada stat relasi dan kepribadian karakter
+3. Tentukan Perubahan Stat: Keluarkan perubahan stat yang logis. Aksi yang berhasil meningkatkan stat, aksi yang gagal menurunkannya
+
+PANDUAN STAT CHANGES:
+- Action Points: Selalu -1 hingga -3 tergantung kompleksitas aksi
+- Aksi berhasil: +1 hingga +5 untuk stat yang relevan
+- Aksi gagal: -1 hingga -3 untuk stat yang relevan
+- Aksi sangat berani yang berhasil: hingga +7 untuk stat yang relevan
+- Aksi sangat berani yang gagal: hingga -5 untuk stat yang relevan
+
+KEPRIBADIAN KARAKTER:
+- Bocchi: Sangat pemalu, mudah panik, tapi menghargai kebaikan genuine
+- Nijika: Friendly, supportive, mudah menerima gesture positif
+- Ryo: Cool, mysterious, butuh effort lebih untuk impress
+- Kita: Outgoing, confident, appreciate bold moves
+
+FORMAT RESPONS JSON:
+{
+    "narration": "Narasi detail tentang upaya pemain dan hasil/reaksi karakter (minimal 100 kata)",
+    "stat_changes": {
+        "action_points": -1,
+        "character_trust": 0,
+        "character_comfort": 0,
+        "character_affection": 0
+    }
+}`;
+    },
+
+    /**
+     * FASE 4.9: Kirim hasil aksi kustom ke pemain
+     */
+    async sendCustomActionResult(interaction, result, customAction) {
+        const embed = new EmbedBuilder()
+            .setColor('#e74c3c')
+            .setTitle('🎭 Aksi Bebas')
+            .setDescription(`**Aksi:** ${customAction}\n\n${result.narration}`)
+            .setFooter({ text: 'Aksi Bebas • Risiko tinggi, reward tinggi!' })
+            .setTimestamp();
+
+        // Tambahkan field stat changes jika ada
+        if (result.stat_changes && Object.keys(result.stat_changes).length > 0) {
+            const statChanges = Object.entries(result.stat_changes)
+                .filter(([key, value]) => value !== 0)
+                .map(([key, value]) => {
+                    const sign = value > 0 ? '+' : '';
+                    return `${key.replace(/_/g, ' ')}: ${sign}${value}`;
+                })
+                .join(' | ');
+
+            if (statChanges) {
+                embed.addFields({
+                    name: '📊 Perubahan Status',
+                    value: statChanges,
+                    inline: false
+                });
+            }
+        }
+
+        embed.addFields({
+            name: '💡 Tips',
+            value: 'Gunakan `/act` tanpa argumen untuk melihat aksi terstruktur yang lebih aman, atau terus bereksperimen dengan aksi bebas!',
+            inline: false
+        });
+
+        await interaction.editReply({ embeds: [embed] });
+    },
+
+    /**
      * Generate action choices using Situation Director LLM (API Call #1)
      */
     async generateActionChoices(player, situationContext) {
@@ -240,14 +506,19 @@ module.exports = {
      * Display action choices with dynamic buttons
      */
     async displayActionChoices(interaction, player, situationContext, actionChoices, isFollowUp = false) {
+        // FASE 3.1: Get energy zone info
+        const { getEnergyZone } = require('../database');
+        const currentEnergy = situationContext.player_stats.energy || 100;
+        const energyZone = getEnergyZone(currentEnergy);
+
         // Create embed with situation context (Fase 4.8: Fokus pada aksi lokal)
         const embed = new EmbedBuilder()
-            .setColor('#4ecdc4')
-            .setTitle('🎭 Pilihan Aksi Tersedia')
-            .setDescription(`**${situationContext.time.day}, ${situationContext.time.time_string} JST**\n\nKamu berada di **${situationContext.location}**. Cuaca ${situationContext.weather.name} menciptakan suasana ${situationContext.weather.mood}.\n\nPilih aksi yang ingin kamu lakukan di lokasi ini:`)
+            .setColor(energyZone.color)
+            .setTitle(`🎭 Pilihan Aksi Tersedia ${energyZone.emoji}`)
+            .setDescription(`**${situationContext.time.day}, ${situationContext.time.time_string} JST**\n\nKamu berada di **${situationContext.location}**. Cuaca ${situationContext.weather.name} menciptakan suasana ${situationContext.weather.mood}.\n\n${energyZone.zone === 'critical' ? '⚠️ **Energi sangat rendah! Aksi berisiko gagal.**' : energyZone.zone === 'tired' ? '😴 **Sedikit lelah, performa menurun.**' : '💪 **Energi optimal, performa terbaik!**'}\n\nPilih aksi yang ingin kamu lakukan di lokasi ini:`)
             .addFields(
                 { name: '📍 Lokasi', value: situationContext.location, inline: true },
-                { name: '⚡ AP Tersedia', value: situationContext.player_stats.action_points.toString(), inline: true },
+                { name: '⚡ Energi', value: `${situationContext.player_stats.energy || 100}/100`, inline: true },
                 { name: '🌤️ Cuaca', value: situationContext.weather.name, inline: true }
             );
 
@@ -305,11 +576,156 @@ module.exports = {
             timestamp: Date.now()
         };
     },
+
+    /**
+     * FASE 3.1: Check if action is energy recovery type
+     */
+    isEnergyRecoveryAction(actionText) {
+        const recoveryKeywords = [
+            'istirahat', 'tidur', 'beristirahat', 'rileks', 'relaksasi',
+            'minum', 'kopi', 'teh', 'makan', 'snack', 'makanan',
+            'duduk', 'berbaring', 'santai', 'tenang', 'meditasi',
+            'napas', 'bernafas', 'healing', 'recovery', 'pulih'
+        ];
+
+        const lowerAction = actionText.toLowerCase();
+        return recoveryKeywords.some(keyword => lowerAction.includes(keyword));
+    },
+
+    /**
+     * FASE 3.1: Execute energy recovery action with special handling
+     */
+    async executeEnergyRecoveryAction(player, situationContext, chosenAction) {
+        const recoveryAmount = this.calculateEnergyRecovery(chosenAction, situationContext.location);
+        const currentEnergy = player.energy || 100;
+        const newEnergy = Math.min(100, currentEnergy + recoveryAmount);
+
+        const recoveryNarration = this.generateEnergyRecoveryNarration(
+            chosenAction,
+            situationContext,
+            recoveryAmount,
+            currentEnergy,
+            newEnergy
+        );
+
+        return {
+            narration: recoveryNarration,
+            stat_changes: {
+                energy: recoveryAmount
+            }
+        };
+    },
+
+    /**
+     * FASE 3.1: Calculate energy recovery amount based on action and location
+     */
+    calculateEnergyRecovery(actionText, location) {
+        let baseRecovery = 10; // Default recovery
+
+        // Action-based recovery
+        if (actionText.toLowerCase().includes('tidur')) {
+            baseRecovery = 40;
+        } else if (actionText.toLowerCase().includes('istirahat')) {
+            baseRecovery = 25;
+        } else if (actionText.toLowerCase().includes('minum') || actionText.toLowerCase().includes('kopi')) {
+            baseRecovery = 15;
+        } else if (actionText.toLowerCase().includes('makan')) {
+            baseRecovery = 20;
+        } else if (actionText.toLowerCase().includes('santai') || actionText.toLowerCase().includes('rileks')) {
+            baseRecovery = 15;
+        }
+
+        // Location-based modifier
+        if (location.includes('Rumah') || location.includes('Home')) {
+            baseRecovery += 5; // Bonus for being at home
+        } else if (location.includes('Taman') || location.includes('Park')) {
+            baseRecovery += 3; // Bonus for peaceful location
+        }
+
+        return baseRecovery;
+    },
+
+    /**
+     * FASE 3.1: Generate narration for energy recovery actions
+     */
+    generateEnergyRecoveryNarration(actionText, situationContext, recoveryAmount, oldEnergy, newEnergy) {
+        const { getEnergyZone } = require('../database');
+        const oldZone = getEnergyZone(oldEnergy);
+        const newZone = getEnergyZone(newEnergy);
+
+        let narration = `Kamu memutuskan untuk ${actionText.toLowerCase()}. `;
+
+        // Context-based narration
+        if (actionText.toLowerCase().includes('tidur')) {
+            narration += `Kamu mencari tempat yang nyaman dan berbaring. Mata mulai terasa berat, dan dalam beberapa menit kamu sudah tertidur pulas. `;
+        } else if (actionText.toLowerCase().includes('minum')) {
+            narration += `Kamu menyesap minuman dengan perlahan, merasakan kehangatan yang menyebar di tubuhmu. `;
+        } else if (actionText.toLowerCase().includes('makan')) {
+            narration += `Kamu menikmati makanan dengan tenang, merasakan energi kembali mengalir ke tubuhmu. `;
+        } else {
+            narration += `Kamu meluangkan waktu untuk beristirahat dan memulihkan tenaga. `;
+        }
+
+        // Energy zone transition
+        if (oldZone.zone !== newZone.zone) {
+            if (oldZone.zone === 'critical' && newZone.zone === 'tired') {
+                narration += `Kamu merasa jauh lebih baik sekarang. Meski masih sedikit lelah, setidaknya kamu tidak lagi merasa akan pingsan. `;
+            } else if (oldZone.zone === 'tired' && newZone.zone === 'optimal') {
+                narration += `Energimu kembali penuh! Kamu merasa segar dan siap untuk menghadapi tantangan apa pun. `;
+            } else {
+                narration += `Kamu merasa lebih berenergi dari sebelumnya. `;
+            }
+        } else {
+            narration += `Kamu merasa sedikit lebih segar. `;
+        }
+
+        narration += `Energi: ${oldEnergy}/100 → ${newEnergy}/100 (+${recoveryAmount})`;
+
+        return narration;
+    },
+
+    /**
+     * FASE 3.1: Apply energy zone effects to stat changes
+     */
+    applyEnergyEffects(statChanges, energyZone) {
+        const modifiedStats = { ...statChanges };
+
+        // Apply energy multiplier to relationship stats (not energy itself)
+        Object.keys(modifiedStats).forEach(key => {
+            if (key !== 'energy' && key !== 'action_points') {
+                if (typeof modifiedStats[key] === 'number') {
+                    modifiedStats[key] = Math.round(modifiedStats[key] * energyZone.statMultiplier);
+                }
+            }
+        });
+
+        // Handle critical energy failure chance
+        if (energyZone.zone === 'critical' && Math.random() < energyZone.failureChance) {
+            // Action failed due to low energy
+            Object.keys(modifiedStats).forEach(key => {
+                if (key !== 'energy' && key !== 'action_points') {
+                    if (typeof modifiedStats[key] === 'number' && modifiedStats[key] > 0) {
+                        modifiedStats[key] = -Math.abs(modifiedStats[key]); // Convert positive to negative
+                    }
+                }
+            });
+            modifiedStats._energyFailure = true; // Flag for narrative
+        }
+
+        return modifiedStats;
+    },
     /**
      * Execute chosen action with narrative LLM (API Call #2)
      */
     async executeChosenAction(player, situationContext, chosenAction) {
         try {
+            // FASE 3.1: Check if this is an energy recovery action
+            const isEnergyRecovery = this.isEnergyRecoveryAction(chosenAction);
+
+            if (isEnergyRecovery) {
+                return await this.executeEnergyRecoveryAction(player, situationContext, chosenAction);
+            }
+
             const prompt = this.buildNarrativePrompt(situationContext, chosenAction);
             console.log(`[ACT] Narrative prompt built, length: ${prompt.length} characters`);
 
@@ -328,6 +744,11 @@ module.exports = {
             if (!narrativeResult.narration || !narrativeResult.stat_changes) {
                 throw new Error('Invalid narrative response structure');
             }
+
+            // FASE 3.1: Apply energy zone effects to stat changes
+            const { getEnergyZone } = require('../database');
+            const energyZone = getEnergyZone(player.energy || 100);
+            narrativeResult.stat_changes = this.applyEnergyEffects(narrativeResult.stat_changes, energyZone);
 
             console.log(`[ACT] Narrative execution successful`);
             return narrativeResult;

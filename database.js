@@ -44,11 +44,109 @@ function initializeDatabase() {
                 console.error('Error membuat tabel players:', err.message);
                 reject(err);
             } else {
+                console.log('Terhubung ke database SQLite bocchi_game.db');
                 console.log('Tabel players berhasil dibuat atau sudah ada');
+
+                // FASE 3.1: Migrasi action_points ke energy untuk data yang sudah ada
+                migrateActionPointsToEnergy().then(() => {
+                    resolve();
+                }).catch(reject);
+            }
+        });
+    });
+}
+
+// FASE 3.1: Fungsi migrasi dari action_points ke energy
+function migrateActionPointsToEnergy() {
+    return new Promise((resolve, reject) => {
+        // Cek apakah kolom action_points masih ada
+        db.all("PRAGMA table_info(players)", (err, columns) => {
+            if (err) {
+                console.error('Error checking table structure:', err);
+                reject(err);
+                return;
+            }
+
+            const hasActionPoints = columns.some(col => col.name === 'action_points');
+            const hasEnergy = columns.some(col => col.name === 'energy');
+
+            if (hasActionPoints && !hasEnergy) {
+                console.log('Migrating action_points to energy...');
+
+                // Tambah kolom energy
+                db.run("ALTER TABLE players ADD COLUMN energy INTEGER DEFAULT 100", (err) => {
+                    if (err) {
+                        console.error('Error adding energy column:', err);
+                        reject(err);
+                        return;
+                    }
+
+                    // Konversi action_points ke energy (multiply by 10 untuk scale 0-100)
+                    db.run("UPDATE players SET energy = CASE WHEN action_points * 10 > 100 THEN 100 ELSE action_points * 10 END", (err) => {
+                        if (err) {
+                            console.error('Error migrating data:', err);
+                            reject(err);
+                            return;
+                        }
+
+                        console.log('Migration completed: action_points -> energy');
+                        resolve();
+                    });
+                });
+            } else {
+                // Tidak perlu migrasi
                 resolve();
             }
         });
     });
+}
+
+// FASE 3.1: Sistem Energy Zones
+function getEnergyZone(energy) {
+    if (energy >= 41) {
+        return {
+            zone: 'optimal',
+            name: 'Zona Optimal',
+            description: 'Energi penuh, performa terbaik',
+            color: '#2ecc71',
+            emoji: '💪',
+            statMultiplier: 1.2,
+            failureChance: 0
+        };
+    } else if (energy >= 11) {
+        return {
+            zone: 'tired',
+            name: 'Zona Lelah',
+            description: 'Sedikit lelah, performa menurun',
+            color: '#f39c12',
+            emoji: '😴',
+            statMultiplier: 0.7,
+            failureChance: 0.1
+        };
+    } else {
+        return {
+            zone: 'critical',
+            name: 'Zona Kritis',
+            description: 'Sangat lelah, risiko tinggi',
+            color: '#e74c3c',
+            emoji: '🥵',
+            statMultiplier: 0.3,
+            failureChance: 0.4
+        };
+    }
+}
+
+// FASE 3.1: Fungsi untuk mengurangi energy dengan konsekuensi
+function consumeEnergy(currentEnergy, cost) {
+    const newEnergy = Math.max(0, currentEnergy - cost);
+    const energyZone = getEnergyZone(newEnergy);
+
+    return {
+        newEnergy,
+        energyZone,
+        canAct: true, // Selalu bisa beraksi, tapi dengan konsekuensi
+        warning: newEnergy <= 10 ? 'Energi sangat rendah! Aksi berisiko gagal.' : null
+    };
 }
 
 // Fungsi untuk mendapatkan data pemain berdasarkan discord_id
@@ -66,20 +164,20 @@ function getPlayer(discordId) {
 }
 
 // Fungsi untuk menambah pemain baru
-function addPlayer(discordId, originStory = null, actionPoints = 3) {
+function addPlayer(discordId, originStory = null, energy = 100) {
     return new Promise((resolve, reject) => {
         const currentDate = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
         const query = `
             INSERT INTO players (
-                discord_id, 
-                origin_story, 
-                last_played_date, 
-                action_points,
+                discord_id,
+                origin_story,
+                last_played_date,
+                energy,
                 current_weather
             ) VALUES (?, ?, ?, ?, ?)
         `;
-        
-        db.run(query, [discordId, originStory, currentDate, actionPoints, null], function(err) {
+
+        db.run(query, [discordId, originStory, currentDate, energy, null], function(err) {
             if (err) {
                 reject(err);
             } else {
@@ -250,5 +348,8 @@ module.exports = {
     closeDatabase,
     addKnownCharacter,
     isCharacterKnown,
-    getKnownCharacters
+    getKnownCharacters,
+    // FASE 3.1: Energy system functions
+    getEnergyZone,
+    consumeEnergy
 };
